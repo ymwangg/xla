@@ -1,5 +1,5 @@
 [submodule "third_party/tensorflow"]
 	path = third_party/tensorflow
-	url = https://github.com/tensorflow/tensorflow.git
+	url = https://git-codecommit.us-west-2.amazonaws.com/v1/repos/TensorFlow
 	ignore = dirty
 

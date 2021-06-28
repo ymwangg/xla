@@ -5,16 +5,23 @@ ARG base_image="debian:stretch"
 FROM "${base_image}"
 
 ARG python_version="3.6"
-ARG cloud_build="false"
 ARG release_version="nightly"
-ARG cuda="0"
+ARG cuda="1"
 ARG cuda_compute="7.0,7.5"
 ARG cxx_abi="0"
-ARG tpuvm=""
+ARG PT_XLA_BRANCH
+ARG AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+ARG AWS_DEFAULT_REGION
 
 RUN apt-get update
 RUN apt-get install -y git sudo python-pip python3-pip
-RUN git clone https://github.com/pytorch/pytorch
+RUN apt-get install -y curl unzip && \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip > /dev/null && \
+    ./aws/install && \
+    git config --global credential.helper '!aws codecommit credential-helper $@' && \
+    git config --global credential.UseHttpPath true
+RUN git clone https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorch pytorch
 
 # Disable CUDA for PyTorch
 ENV USE_CUDA "0"
@@ -23,27 +30,16 @@ ENV USE_CUDA "0"
 ENV XLA_CUDA "${cuda}"
 ENV TF_CUDA_COMPUTE_CAPABILITIES "${cuda_compute}"
 
-# Whether the build is running on GCB
-ENV CLOUD_BUILD "${cloud_build}"
-
 # Whether to build torch and torch_xla libraries with CXX ABI
 ENV CXX_ABI "${cxx_abi}"
 
-# Whether to build for TPUVM mode
-ENV TPUVM_MODE "${tpuvm}"
-
-# To get around issue of Cloud Build with recursive submodule update
-# clone recursively from pytorch/xla if building docker image with
-# cloud build. Otherwise, just use local.
-# https://github.com/GoogleCloudPlatform/cloud-builders/issues/435
 COPY . /pytorch/xla
-RUN if [ "${cloud_build}" = true ]; then github_branch="${release_version}" && \
-  if [ "${release_version}" = "nightly" ]; then github_branch="master"; fi && \
-  cd /pytorch && \
-  rm -rf xla && \
-  git clone -b "${github_branch}" --recursive https://github.com/pytorch/xla && \
-  cd / && \
-  git clone -b "${github_branch}" --recursive https://github.com/pytorch-tpu/examples tpu-examples; fi
+RUN if [ ! -z "${PT_XLA_BRANCH}" ]; \
+  then \
+    cd /pytorch && \
+    rm -rf xla && \
+    git clone -b "${PT_XLA_BRANCH}" --recursive https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorchXla xla; \
+  fi
 
 RUN cd /pytorch && bash xla/scripts/build_torch_wheels.sh ${python_version} ${release_version}
 

@@ -1,0 +1,67 @@
+version: 0.2
+
+env:
+  exported-variables:
+     - REMOTE_TAG
+     - TORCH_VERSION
+     - base_image
+     - python_version
+  git-credential-helper: yes
+phases:
+  install:
+    runtime-versions:
+      docker: 19
+    commands:
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip > /dev/null
+      - ./aws/install
+      - /usr/local/bin/aws --version
+      - export ECR='875423407011.dkr.ecr.us-west-2.amazonaws.com'
+      - export REPOSITORY_NAME="pytorch-xla-builder/$CODEBUILD_SOURCE_VERSION"
+      - export REPOSITORY="$ECR/$REPOSITORY_NAME"
+      - export DKRUN='docker run --rm'
+  pre_build:
+    commands:
+      - export IGNORE="$(/usr/local/bin/aws ecr create-repository --region us-west-2 --repository-name $REPOSITORY_NAME)"
+      - /usr/local/bin/aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR
+      - /usr/local/bin/aws secretsmanager get-secret-value --secret-id DockerHubCredentials| grep 'SecretString'| cut -d ',' -f2 | cut -d '"' -f 4| cut -d '\' -f 1 | docker login --username hopperdev --password-stdin
+  build:
+    commands:
+      - echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Building XLA @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+      - |
+        docker build \
+          --build-arg AWS_DEFAULT_REGION \
+          --build-arg AWS_CONTAINER_CREDENTIALS_RELATIVE_URI \
+          --build-arg base_image \
+          --build-arg cuda_compute \
+          --build-arg python_version \
+          --build-arg release_version \
+          -t torch-xla -f docker/Dockerfile .
+  post_build:
+    commands:
+      - echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Pushing Build Container @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+      - export CUDA_VERSION=$($DKRUN torch-xla nvcc --version|grep 'Cuda.*release'|cut -d ' ' -f 5|cut -d ',' -f 1)
+      - export CUDNN_VERSION=$($DKRUN torch-xla dpkg -l | cut -d ' ' -f3 | grep libcudnn | grep -v '\-'|cut -d 'n' -f 3 )
+      - export UBUNTU_VERSION=$($DKRUN torch-xla lsb_release -rs|tail -n 1)
+      - export TORCH_VERSION=$($DKRUN torch-xla python3 -c 'import torch as lib; print(lib.__version__)'|tail -n 1 | cut -d '.' -f 1-2 | cut -d '+' -f 1 )
+      - export TORCHXLA_VERSION=$($DKRUN torch-xla python3 -c 'import torch_xla as lib; print(lib.__version__)'|tail -n 1 | cut -d '.' -f 1-2 | cut -d '+' -f 1 )
+      - export TORCHVISION_VERSION=$($DKRUN torch-xla python3 -c 'import torchvision as lib; print(lib.__version__)'|tail -n 1 | cut -d '.' -f 1-2 | cut -d '+' -f 1 )
+      - export REMOTE_TAG="$REPOSITORY:ubuntu$UBUNTU_VERSION-cuda$CUDA_VERSION-cudnn$CUDNN_VERSION-torch$TORCH_VERSION-xla$TORCHXLA_VERSION-vision$TORCHVISION_VERSION"
+      - echo "Built Container $REMOTE_TAG"
+      - docker tag torch-xla $REMOTE_TAG
+      - docker push $REMOTE_TAG
+      - echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Exporting PT-XLA Wheels @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
+      - CONTAINER="prebuilt-torch-xla-$(tr -dc a-z0-9 </dev/urandom | head -c 6 ; echo '')"
+      - echo "CONTAINER=$CONTAINER"
+      - docker run --name $CONTAINER torch-xla sleep 1
+      - mkdir -p wheels/pytorch
+      - mkdir -p wheels/xla
+      - mkdir -p wheels/torchvision
+      - docker cp $CONTAINER:/pytorch/dist/. wheels/pytorch
+      - docker cp $CONTAINER:/pytorch/xla/dist/. wheels/xla
+      - docker cp $CONTAINER:/pytorch/vision/dist/. wheels/torchvision
+artifacts:
+  files:
+    - wheels/**/*
+  name: $CODEBUILD_INITIATOR/$(date +%Y-%m-%d_%H:%M:%S)
+

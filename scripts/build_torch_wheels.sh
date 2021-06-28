@@ -83,9 +83,9 @@ function maybe_install_cuda {
 function maybe_install_sources {
   if [ ! -d "torch" ]; then
     sudo apt-get install -y git
-    git clone --recursive https://github.com/pytorch/pytorch.git
+    git clone --recursive https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorch pytorch
     cd pytorch
-    git clone --recursive https://github.com/pytorch/xla.git
+    git clone --recursive https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorchXla xla
     export RELEASE_VERSION="nightly"
   fi
 }
@@ -204,7 +204,7 @@ function install_torchvision_from_source() {
   torchvision_repo_version="master"
   # Cannot install torchvision package with PyTorch installation from source.
   # https://github.com/pytorch/vision/issues/967
-  git clone -b "${torchvision_repo_version}" https://github.com/pytorch/vision.git
+  git clone -b "${torchvision_repo_version}" https://git-codecommit.us-west-2.amazonaws.com/v1/repos/TorchVision vision
   pushd vision
   python setup.py bdist_wheel
   pip install dist/*.whl
@@ -222,7 +222,6 @@ function main() {
   build_and_install_torch_xla
   popd
   install_torchvision_from_source
-  install_gcloud
 }
 
 main
