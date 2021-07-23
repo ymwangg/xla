@@ -17,7 +17,8 @@ phases:
       - ./aws/install
       - /usr/local/bin/aws --version
       - export ECR='875423407011.dkr.ecr.us-west-2.amazonaws.com'
-      - export REPOSITORY_NAME="pytorch-xla-builder/$CODEBUILD_SOURCE_VERSION"
+      - export BRANCH_NAME="hopper/main"
+      - export REPOSITORY_NAME="pytorch-xla-builder/$BRANCH_NAME"
       - export REPOSITORY="$ECR/$REPOSITORY_NAME"
       - export DKRUN='docker run --rm'
   pre_build:
