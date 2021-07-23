@@ -21,7 +21,7 @@ RUN apt-get install -y curl unzip && \
     ./aws/install && \
     git config --global credential.helper '!aws codecommit credential-helper $@' && \
     git config --global credential.UseHttpPath true
-RUN git clone https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorch pytorch
+RUN git clone -b hopper/main https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorch pytorch
 
 # Disable CUDA for PyTorch
 ENV USE_CUDA "0"
