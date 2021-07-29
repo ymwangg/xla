@@ -17,7 +17,8 @@ phases:
       - ./aws/install
       - /usr/local/bin/aws --version
       - export ECR='875423407011.dkr.ecr.us-west-2.amazonaws.com'
-      - export REPOSITORY_NAME="pytorch-xla-ec2-training-container/$CODEBUILD_SOURCE_VERSION"
+      - export BRANCH_NAME="hopper/main"
+      - export REPOSITORY_NAME="pytorch-xla-ec2-training-container/$BRANCH_NAME"
       - export REPOSITORY="$ECR/$REPOSITORY_NAME"
       - export DKRUN='docker run --rm'
   pre_build:
@@ -28,7 +29,6 @@ phases:
   build:
     commands:
       - echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Building Inference Containers @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
-      - /usr/local/bin/aws s3 cp --recursive --quiet $WHEELS_S3_URI wheels
       - |
         docker build \
           --build-arg base_image \
