@@ -27,7 +27,7 @@ ENV PATH /root/anaconda3/envs/pytorch/bin/:/root/bin:$PATH
 
 COPY wheels wheels
 
-RUN apt-get install -y libomp5 && \
+RUN apt-get install -y libomp5 git && \
 	. "$HOME/anaconda3/etc/profile.d/conda.sh" && \
 	conda activate "$ENVNAME" && \
 	conda install -y \
