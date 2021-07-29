@@ -33,7 +33,7 @@ phases:
         docker build \
           --build-arg base_image \
           --build-arg python_version \
-          -t torch-xla -f hopper/build/Dockerfile-ec2 .
+          -t torch-xla -f hopper/test/Dockerfile-ec2 .
   post_build:
     commands:
       - echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Pushing Build Container @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
