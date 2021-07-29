@@ -48,6 +48,13 @@ RUN apt-get install -y libomp5 && \
 	python3 -m pip install --no-deps wheels/torchvision/*.whl && \
 	rm -rf wheels
 
+# Install huggingface/transformers
+RUN mkdir -p /opt/ml \
+ && cd /opt/ml \
+ && git clone --recursive -b benchmark-xla https://github.com/trevor-m/transformers.git \
+ && cd transformers \
+ && python3 -m pip install -e .
+
 RUN echo "conda activate pytorch" >> ~/.bashrc && \
 	echo "export TF_CPP_LOG_THREAD_ID=1" >> ~/.bashrc
 

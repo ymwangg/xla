@@ -48,13 +48,6 @@ RUN echo "conda activate pytorch" >> ~/.bashrc
 RUN echo "export TF_CPP_LOG_THREAD_ID=1" >> ~/.bashrc
 ENV PATH /root/anaconda3/envs/pytorch/bin/:/root/bin:$PATH
 
-# Install huggingface/transformers
-RUN mkdir -p /hopper \
- && cd /hopper \
- && git clone --recursive -b benchmark-xla https://github.com/trevor-m/transformers.git \
- && cd transformers \
- && python3 -m pip install -e .
-
 # Define entrypoint and cmd
 COPY docker/docker-entrypoint.sh /usr/local/bin
 ENTRYPOINT ["docker-entrypoint.sh"]
