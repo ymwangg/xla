@@ -1,0 +1,67 @@
+ARG base_image="debian:stretch"
+FROM "${base_image}"
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV PYTHONUNBUFFERED TRUE
+
+ARG python_version="3.6"
+ARG CONDA_VERSION="5.3.1"
+ARG ENVNAME="pytorch"
+
+RUN apt-get update
+RUN apt-get install -y python-pip python3-pip lsb-release
+
+RUN apt-get install -y curl && \
+	curl -O "https://repo.anaconda.com/archive/Anaconda3-${CONDA_VERSION}-Linux-x86_64.sh" && \
+	sh "Anaconda3-${CONDA_VERSION}-Linux-x86_64.sh" -b && \
+	rm -f "Anaconda3-${CONDA_VERSION}-Linux-x86_64.sh" && \
+	echo ". $HOME/anaconda3/etc/profile.d/conda.sh" >> ~/.bashrc && \
+	. "$HOME/anaconda3/etc/profile.d/conda.sh" && \
+	$HOME/anaconda3/bin/conda create -y --name "$ENVNAME" python=${python_version} anaconda && \
+	conda activate "$ENVNAME" && \
+	python3 --version
+
+ENV CMAKE_PREFIX_PATH="$HOME/anaconda3"
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/anaconda3/envs/$ENVNAME/lib/
+ENV PATH /root/anaconda3/envs/pytorch/bin/:/root/bin:$PATH
+
+COPY wheels wheels
+
+RUN apt-get install -y libomp5 git && \
+	. "$HOME/anaconda3/etc/profile.d/conda.sh" && \
+	conda activate "$ENVNAME" && \
+	conda install -y \
+		numpy \
+		pyyaml \
+		mkl-include \
+		setuptools \
+		cmake \
+		cffi \
+		typing \
+		tqdm \
+		coverage \
+		tensorboard \
+		hypothesis \
+		dataclasses && \
+	python3 -m pip install --no-deps wheels/pytorch/*.whl && \
+	python3 -m pip install --no-deps wheels/torchvision/*.whl && \
+	rm -rf wheels
+
+# Create /opt/ml folder
+RUN mkdir -p /opt/ml
+
+# Copy hopper directory from xla/hopper which contains test scripts and files
+COPY hopper /opt/ml/hopper
+
+#  Install huggingface/transformers
+RUN cd /opt/ml \
+ && git clone --recursive -b benchmark-xla https://github.com/trevor-m/transformers.git \
+ && cd transformers \
+ && python3 -m pip install -e .
+
+RUN echo "conda activate pytorch" >> ~/.bashrc && \
+	echo "export TF_CPP_LOG_THREAD_ID=1" >> ~/.bashrc
+
+CMD ["bash"]
+
+
