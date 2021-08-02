@@ -19,9 +19,9 @@ phases:
       - export ECR='875423407011.dkr.ecr.us-west-2.amazonaws.com'
       - export BRANCH_NAME="hopper/main"
       - export REPOSITORY_NAME_XLA="pytorch-xla-ec2-training-container/$BRANCH_NAME"
-      - export REPOSITORY_XLA="$ECR/$REPOSITORY_NAME"
+      - export REPOSITORY_XLA="$ECR/$REPOSITORY_NAME_XLA"
       - export REPOSITORY_NAME_NATIVE="pytorch-native-ec2-training-container/$BRANCH_NAME"
-      - export REPOSITORY_NATIVE="$ECR/$REPOSITORY_NAME"
+      - export REPOSITORY_NATIVE="$ECR/$REPOSITORY_NAME_NATIVE"
       - export DKRUN='docker run --rm'
   pre_build:
     commands:
@@ -57,7 +57,6 @@ phases:
       - docker tag torch-xla $REMOTE_TAG
       - docker push $REMOTE_TAG
       - echo '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Pushing PT-Native Container @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@'
-      - export REPOSITORY_NAME="pytorch-native-ec2-training-container/$BRANCH_NAME"
       - CUDA_VERSION=$($DKRUN torch-native nvcc --version|grep 'Cuda.*release'|cut -d ' ' -f 5|cut -d ',' -f 1)
       - CUDNN_VERSION=$($DKRUN torch-native dpkg -l | cut -d ' ' -f3 | grep libcudnn | grep -v '\-'|cut -d 'n' -f 3 )
       - UBUNTU_VERSION=$($DKRUN torch-native lsb_release -rs|tail -n 1)
