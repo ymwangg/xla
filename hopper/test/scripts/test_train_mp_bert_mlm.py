@@ -208,11 +208,8 @@ if __name__ == "__main__":
         import nvidia_dlprof_pytorch_nvtx
         nvidia_dlprof_pytorch_nvtx.init()
 
-    if xla_enabled: 
-        dataset_path = "/pytorch/xla/data/clean.txt"
-        os.system("wget https://raw.githubusercontent.com/jamescalam/transformers/main/data/text/meditations/clean.txt && mkdir /pytorch/xla/data  && mv clean.txt /pytorch/xla/data/clean.txt")
-    else:
-        dataset_path = "data/clean.txt"
+    # wget https://raw.githubusercontent.com/jamescalam/transformers/main/data/text/meditations/clean.txt
+    dataset_path = "/opt/ml/hopper/test/files/clean.txt"
 
     num_epochs = 10
     main()
