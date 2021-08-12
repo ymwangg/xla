@@ -185,6 +185,14 @@ function build_and_install_torch() {
   git submodule update --init --recursive
   # Apply patches to PT which are required by the XLA support.
   xla/scripts/apply_patches.sh
+  # fix to compile with CUDA
+  # PT-XLA is compiled with -D_GLIBCXX_USE_CXX11_ABI=0 but this 
+  #   option is not propagated to gloo:
+  #   https://github.com/facebookincubator/gloo/issues/298
+  sed -i \
+	'/gloo_list_append_if_unique(CUDA_NVCC_FLAGS "-Xcompiler" "-fPIC")/i \
+	gloo_list_append_if_unique(CUDA_NVCC_FLAGS "-Xcompiler" "-D_GLIBCXX_USE_CXX11_ABI=0")' \
+ 	third_party/gloo/cmake/Cuda.cmake
   python setup.py bdist_wheel
   pip install dist/*.whl
 }

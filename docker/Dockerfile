@@ -23,7 +23,7 @@ RUN apt-get install -y curl unzip && \
     git config --global credential.UseHttpPath true
 RUN git clone -b hopper/main https://git-codecommit.us-west-2.amazonaws.com/v1/repos/PyTorch pytorch
 
-# Disable CUDA for PyTorch
+# Enable CUDA for PyTorch
 ENV USE_CUDA "${cuda}"
 
 # Enable CUDA for XLA
