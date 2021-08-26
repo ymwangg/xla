@@ -48,13 +48,13 @@ RUN apt-get install -y libomp5 git && \
 	rm -rf wheels
 
 # Create /opt/ml folder
-RUN mkdir -p /opt/ml
+RUN mkdir -p /opt/ml/code
 
 # Copy hopper directory from xla/hopper which contains test scripts and files
-COPY hopper /opt/ml/hopper
+COPY hopper /opt/ml/code/hopper
 
 #  Install huggingface/transformers
-RUN cd /opt/ml \
+RUN cd /opt/ml/code \
  && git clone --recursive -b benchmark-xla https://github.com/trevor-m/transformers.git \
  && cd transformers \
  && python3 -m pip install -e .
