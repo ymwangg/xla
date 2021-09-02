@@ -3,7 +3,7 @@ import argparse
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument("--use-xla", action='store_true')
+  parser.add_argument("--use_xla", action='store_true')
   parser.add_argument('-m', '--models', nargs='+', default=["bert-base-uncased", "bert-large-uncased", "/opt/ml/code/hopper/test/files/bart-config.json", "roberta-base", "gpt2"])
   parser.add_argument('-s', '--sequence_lengths', nargs='+', type=int, default=[128, 512])
   parser.add_argument('-b', '--batch_sizes', nargs='+', type=int, default=[1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 64, 96, 128])
