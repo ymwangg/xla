@@ -648,6 +648,13 @@ absl::flat_hash_map<std::string, absl::variant<int>> ConvertDictToMap(
   return map;
 }
 
+void Barrier(const std::string& device_str) {
+  tensorflow::profiler::TraceMe activity(
+      "Barrier", tensorflow::profiler::TraceMeLevel::kInfo);
+  Device device = GetDeviceOrCurrent(device_str);
+  XLATensor::Barrier(&device);
+}
+
 void BuildProfilerSubmodule(py::module* m) {
   py::module profiler = m->def_submodule("profiler", "Profiler integration");
   py::class_<xla::profiler::ProfilerServer,
@@ -1111,6 +1118,12 @@ void InitXlaModuleBindings(py::module m) {
                                            momentum, lr, dampening, nesterov);
           }
         });
+  m.def("_xla_barrier",
+        [](const std::string& device) {
+          NoGilSection nogil;
+          Barrier(device);
+        },
+        py::arg("device") = "");
 
   BuildProfilerSubmodule(&m);
 }

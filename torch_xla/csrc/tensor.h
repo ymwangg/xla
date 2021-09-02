@@ -180,6 +180,7 @@ class XLATensor {
       const std::vector<at::Tensor>& tensors,
       const std::vector<std::string>& devices);
 
+  static void Barrier(const Device* device);
   //////////////////////////////////////////////////////////////////////////////
   // XLA dedicated operators follows here, listed in alphabetical order.
   //////////////////////////////////////////////////////////////////////////////

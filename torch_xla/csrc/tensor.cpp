@@ -1650,4 +1650,13 @@ xla::uint64 XLATensor::GetRunningSeed(const Device& device) {
   return DeviceContextArena::Get()->GetRunningSeed(device);
 }
 
+void XLATensor::Barrier(const Device* device) {
+  tensorflow::profiler::TraceMe activity(
+      "XLATensorBarrier", tensorflow::profiler::TraceMeLevel::kInfo);
+  auto locker = DeviceLockerArena::Get()->GetLocker(*device);
+  locker->Lock();
+  xla::util::ExceptionCleanup::StatusType status;
+  locker->Unlock(status);
+}
+
 }  // namespace torch_xla
