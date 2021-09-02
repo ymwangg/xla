@@ -1,0 +1,52 @@
+{
+    "ExecutorRole": "arn:aws:iam::489561101597:role/BenchmarkingExecutorRole",
+    "ResourceConfig": {
+        "region_name": "us-west-2",
+        "InstanceType": "p3.2xlarge",
+        "ImageId": "ami-0f3ae2af3f140da52",
+        "SecurityGroupIds": [ "sg-03898d405afae8f4e" ],
+        "IamInstanceProfile": { "Name": "HopperBenchmarking" },
+        "KeyName": "489561101597_us-west-2_HopperBenchmarking",
+        "TagSpecifications": [
+        {
+            "ResourceType": "instance",
+            "Tags": [
+                { "Key": "Team", "Value": "neo-compiler-team" },
+                { "Key": "User", "Value": "trevmorr" },
+                { "Key": "Project", "Value": "Hopper" },
+                { "Key": "Name", "Value": "test-pt-xla" },
+                { "Key": "Purpose", "Value": "SampleTestPayload" }
+            ]
+        }]
+    },
+    "InputDataConfig": [
+        {
+            "ChannelName": "dataset",
+            "DataSource": {
+            "FileSystemDataSource": {
+                "FileSystemId": "fs-0bb54e3096b4c2bbd",
+                "DirectoryPath": "/dataset"
+                }
+            }
+        }
+    ],
+    "AlgorithmSpecifications":
+    {
+        "TrainingImage" : "875423407011.dkr.ecr.us-west-2.amazonaws.com/pytorch-xla-ec2-training-container/hopper/main:ubuntu18.04-cuda11.1-cudnn8-torch1.10-xla1.10-vision0.11"
+    },
+    "HyperParameters":
+    {
+        "models": "gpt2",
+        "training": "yes",
+        "batch_sizes": "8",
+        "sequence_lengths": "512",
+        "inference": "no",
+        "tpu": "",
+        "memory": "false"
+    },
+    "Environment":
+    {
+        "GPU_NUM_DEVICES": "1",
+        "SAGEMAKER_PROGRAM": "transformers/examples/pytorch/benchmarking/run_benchmark.py"
+    }
+}
