@@ -1,0 +1,13 @@
+# buildspec for launching PT-XLA performance and accuracy tests
+
+versino: 0.2
+
+phases:
+  install:
+    commands:
+      - pip3 install boto3 awscli
+
+  build:
+    commands:
+      - cd $CODEBUILD_SRC_DIR/hopper/test/automation
+      - python3 trigger.py
