@@ -56,7 +56,7 @@ COPY hopper /opt/ml/code/hopper
 
 #  Install huggingface/transformers
 RUN cd /opt/ml/code \
- && git clone --recursive -b benchmark-xla https://github.com/trevor-m/transformers.git \
+ && git clone --recursive -b benchmark-xla https://github.com/dvhg/transformers.git \
  && cd transformers \
  && python3 -m pip install -e .
 
