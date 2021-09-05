@@ -15,10 +15,10 @@ if __name__ == "__main__":
       for batch_size in args.batch_sizes:
         print("running {} batch_size={} sequence_length={} with xla={}".format(model, batch_size, seq_len, args.use_xla))
         if args.use_xla:
-          os.system("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu --memory false --fp16".format(
+          os.system("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu true --memory false --fp16".format(
             args.transformers_dir, model, batch_size, seq_len
           ))
         else:
-          os.system("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --memory false --cuda yes --fp16".format(
+          os.system("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu false --memory false --fp16".format(
             args.transformers_dir, model, batch_size, seq_len
           ))
