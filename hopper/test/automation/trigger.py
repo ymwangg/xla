@@ -7,7 +7,19 @@ def get_random_string(length=6):
   return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 if __name__ == "__main__":
-  client = boto3.client('stepfunctions')
+  sts_client = boto3.client("sts")
+  role = sts_client.assume_role(
+    RoleArn="arn:aws:iam::886656810413:role/StartTestWorkFlow",
+    RoleSessionName="AssumeRoleSession"
+  )
+  credentials = role["Credentials"]
+
+  client = boto3.client(
+    "stepfunctions",
+    aws_access_key_id=credentials["AccessKeyId"],
+    aws_secret_access_key=credentials["SecretAccessKey"],
+    aws_session_token=credentials["SessionToken"]
+  )
   # Load template
   with open("test-template-multiple.json") as f:
     test_config = json.load(f)
