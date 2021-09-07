@@ -1,6 +1,6 @@
 # buildspec for launching PT-XLA performance and accuracy tests
 
-versino: 0.2
+version: 0.2
 
 phases:
   install:
