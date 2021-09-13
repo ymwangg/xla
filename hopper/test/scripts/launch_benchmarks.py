@@ -1,5 +1,6 @@
-import os
+import subprocess
 import argparse
+import re
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
@@ -13,14 +14,32 @@ if __name__ == "__main__":
   for model in args.models:
     for seq_len in args.sequence_lengths:
       for batch_size in args.batch_sizes:
-        # print("running {} batch_size={} sequence_length={} with xla={}".format(model, batch_size, seq_len, args.use_xla))
-        # if args.use_xla:
         print("running {} batch_size={} sequence_length={} with xla=True".format(model, batch_size, seq_len))
-        os.system("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu true --memory false --fp16".format(
+        xla_out = subprocess.run("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu true --memory false --fp16".format(
             args.transformers_dir, model, batch_size, seq_len
-          ))
-        # else:
+          ),
+          stderr=subprocess.STDOUT,
+          stdout=subprocess.PIPE,
+          shell=True)
+        xla_out = xla_out.stdout.decode()
+        print(xla_out)
+
         print("running {} batch_size={} sequence_length={} with xla=False".format(model, batch_size, seq_len))
-        os.system("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu false --memory false --fp16".format(
+        native_out = subprocess.run("python3 {}/examples/pytorch/benchmarking/run_benchmark.py --models {} --training yes --batch_sizes {} --sequence_lengths {} --inference no --tpu false --memory false --fp16".format(
             args.transformers_dir, model, batch_size, seq_len
-          ))
+          ),
+          stderr=subprocess.STDOUT,
+          stdout=subprocess.PIPE,
+          shell=True)
+        native_out = native_out.stdout.decode()
+        print(native_out)
+        
+        xla_latency, native_latency = "N/A", "N/A"
+        match = re.search("Results: \S+ \S+ \S+ \S+ \S+\n", xla_out)
+        if match:
+          xla_latency = match.group(0).split(" ")[-1].strip()
+        match = re.search("Results: \S+ \S+ \S+ \S+ \S+\n", native_out)
+        if match:
+          native_latency = match.group(0).split(" ")[-1].strip()
+        print("Columns: model, seq_len, batch_size, xla_latency, native_latency")
+        print(f"Aggregate: {model} {seq_len} {batch_size} {xla_latency} {native_latency}")
