@@ -1,21 +1,15 @@
 {
-    "ExecutorRole": "arn:aws:iam::489561101597:role/BenchmarkingExecutorRole",
+    "ExecutorRole": "arn:aws:iam::389009836860:role/BenchmarkingExecutorRole",
     "ResourceConfig": {
         "region_name": "us-west-2",
         "InstanceType": "p3.2xlarge",
         "ImageId": "ami-0f3ae2af3f140da52",
-        "SecurityGroupIds": [ "sg-03898d405afae8f4e" ],
         "IamInstanceProfile": { "Name": "HopperBenchmarking" },
-        "KeyName": "489561101597_us-west-2_HopperBenchmarking",
         "TagSpecifications": [
         {
             "ResourceType": "instance",
             "Tags": [
-                { "Key": "Team", "Value": "neo-compiler-team" },
-                { "Key": "User", "Value": "trevmorr" },
-                { "Key": "Project", "Value": "Hopper" },
-                { "Key": "Name", "Value": "test-pt-xla" },
-                { "Key": "Purpose", "Value": "SampleTestPayload" }
+                { "Key": "Name", "Value": "test-cdk-infra" }
             ]
         }]
     },
@@ -24,7 +18,7 @@
             "ChannelName": "dataset",
             "DataSource": {
             "FileSystemDataSource": {
-                "FileSystemId": "fs-0bb54e3096b4c2bbd",
+                "FileSystemId": "fs-05f9f632a620cea3c",
                 "DirectoryPath": "/dataset"
                 }
             }
@@ -43,5 +37,6 @@
     {
         "GPU_NUM_DEVICES": "1",
         "SAGEMAKER_PROGRAM": "hopper/test/scripts/launch_benchmarks.py"
-    }
+    },
+    "CloudWatchLogGroupName": "Benchmarks/EC2/PyTorch"
 }
