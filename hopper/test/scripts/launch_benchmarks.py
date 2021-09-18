@@ -2,6 +2,17 @@ import subprocess
 import argparse
 import re
 
+
+"""
+Matches results print from HF benchmarks script:
+--------------------------------------------------------------------------------
+          Model Name             Batch Size     Seq Length     Time in s   
+--------------------------------------------------------------------------------
+      bert-base-uncased              4              128            0.062     
+--------------------------------------------------------------------------------
+"""
+RESULTS_REGEX = "(?<=-{80}\n) *\S+ *\S+ *\S+ *\S+ *(?=\n-{80})"
+
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   # parser.add_argument("--use_xla", action='store_true')
@@ -35,11 +46,16 @@ if __name__ == "__main__":
         print(native_out)
         
         xla_latency, native_latency = "N/A", "N/A"
-        match = re.search("Results: \S+ \S+ \S+ \S+ \S+\n", xla_out)
+        match = re.search(RESULTS_REGEX, xla_out)
         if match:
-          xla_latency = match.group(0).split(" ")[-1].strip()
-        match = re.search("Results: \S+ \S+ \S+ \S+ \S+\n", native_out)
+          xla_latency = match.group(0).split()[-1]
+        match = re.search(RESULTS_REGEX, native_out)
         if match:
-          native_latency = match.group(0).split(" ")[-1].strip()
+          native_latency = match.group(0).split()[-1]
+        model_name = model
+        if model_name.endswith(".json"):
+          model_name = model_name.split("/")[-1]
+        if model_name.endswith("-config"):
+          model_name = model_name[:-7]
         print("Columns: model, seq_len, batch_size, xla_latency, native_latency")
-        print(f"Aggregate: {model} {seq_len} {batch_size} {xla_latency} {native_latency}")
+        print(f"Aggregate: {model_name} {seq_len} {batch_size} {xla_latency} {native_latency}")
