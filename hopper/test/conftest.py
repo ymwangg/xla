@@ -1,5 +1,5 @@
 import pytest
-import random, string, functools, json
+import random, string, functools, json, os, subprocess
 import boto3
 
 
@@ -17,13 +17,17 @@ def session_uid():
 
 
 @pytest.fixture(scope='session')
-def start_test_exec():
+def credentials(user):
     sts_client = boto3.client("sts")
     role = sts_client.assume_role(
                     RoleArn=f"arn:aws:iam::{HOPPER_BENCHMARKING_ACCOUNT}:role/StartTestWorkFlow",
-                    RoleSessionName="AssumeRoleSession"
+                    RoleSessionName=f"{user}-pytorch-benchmarks"
                   )
-    credentials = role["Credentials"]
+    return role["Credentials"]
+
+
+@pytest.fixture(scope='session')
+def start_test_exec(credentials):
     sfn_client = boto3.client(
         "stepfunctions",
         aws_access_key_id=credentials["AccessKeyId"],
@@ -35,9 +39,46 @@ def start_test_exec():
 
 
 @pytest.fixture(scope='session')
+def test_directory():
+    hopper_test_dir = os.path.join('hopper','test')
+    cwd = os.getcwd()
+    parent_dir = None
+    if hopper_test_dir in cwd:
+        parent_dir = os.path.join(cwd[:cwd.index(hopper_test_dir)], 'hopper', 'test')
+        return parent_dir
+    else:
+        for root, dirs, files in os.walk(cwd):
+            if root[len(cwd):].count(os.sep) < 2:
+                for d in dirs:
+                    if d == 'test' and root.endswith('hopper'):
+                        parent_dir = os.path.join(root, 'test')
+                        return parent_dir
+    assert parent_dir, f"Unable to find directory {hopper_test_dir}. Please try again from the test directory."
+
+
+@pytest.fixture(scope='session')
+def bootstrap(credentials, test_directory, session_uid):
+    s3_destination = f"s3://hopper-test-scripts-bootstrapping-{HOPPER_BENCHMARKING_ACCOUNT}-us-west-2/{session_uid}"
+    env = os.environ.copy()
+    env.update({
+                'AWS_ACCESS_KEY_ID':credentials["AccessKeyId"],
+                'AWS_SECRET_ACCESS_KEY':credentials["SecretAccessKey"],
+                'AWS_SESSION_TOKEN':credentials["SessionToken"],
+          })
+    bootstrapping = subprocess.run(f"aws s3 cp --recursive --acl bucket-owner-full-control {test_directory} {s3_destination}",
+          stderr=subprocess.STDOUT,
+          stdout=subprocess.PIPE,
+          shell=True,
+          env=env,
+          )
+    assert not bootstrapping.returncode
+    return s3_destination
+
+
+@pytest.fixture(scope='session')
 def user():
     arn = boto3.client('sts').get_caller_identity()['Arn']
-    user = arn.split('/')[-1].replace('-Isengard','')
+    user = arn.split('/')[-1].split('-')[0]
     return user
 
 
@@ -74,7 +115,7 @@ def training_container():
 
 
 @pytest.fixture(scope='function')
-def _request_template(cwloggroup, tags, training_container):
+def _request_template(cwloggroup, tags, training_container, bootstrap):
     with open("automation/test-template-multiple.json") as f:
         test_config = json.load(f)
     test_config['CloudWatchLogGroupName'] = cwloggroup
@@ -84,6 +125,7 @@ def _request_template(cwloggroup, tags, training_container):
                                                         }]
     if training_container:
         test_config['AlgorithmSpecifications']['TrainingImage'] = training_container
+    test_config['AlgorithmSpecifications']['TrainingScripts'] = bootstrap
     return test_config
 
 
@@ -94,7 +136,7 @@ def request_template(_request_template):
 
 @pytest.fixture(scope='function')
 def name_template(session_uid):
-    return functools.partial("hopper-{session_uid}-{model}-Seq{seq}".format, session_uid=session_uid)
+    return functools.partial("pt-{session_uid}-{model}-Seq{seq}".format, session_uid=session_uid)
 
 
 

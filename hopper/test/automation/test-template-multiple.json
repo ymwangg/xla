@@ -26,7 +26,8 @@
     ],
     "AlgorithmSpecifications":
     {
-        "TrainingImage" : "875423407011.dkr.ecr.us-west-2.amazonaws.com/pytorch-xla-ec2-training-container/hopper/main:ubuntu18.04-cuda11.1-cudnn8-torch1.10-xla1.10-vision0.11"
+        "TrainingImage" : "875423407011.dkr.ecr.us-west-2.amazonaws.com/pytorch-xla-ec2-training-container/hopper/main:ubuntu18.04-cuda11.1-cudnn8-torch1.10-xla1.10-vision0.11",
+        "TrainingScripts" : "s3://bucket/path/to/script/directory"
     },
     "HyperParameters":
     {
@@ -36,7 +37,12 @@
     "Environment":
     {
         "GPU_NUM_DEVICES": "1",
-        "SAGEMAKER_PROGRAM": "hopper/test/scripts/launch_benchmarks.py"
+        "SAGEMAKER_PROGRAM": "hopper/test/scripts/launch_benchmarks.py",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONIOENCODING": "UTF-8",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8"
     },
     "CloudWatchLogGroupName": "Benchmarks/EC2/PyTorch"
 }
