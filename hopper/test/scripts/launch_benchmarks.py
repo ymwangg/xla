@@ -54,8 +54,6 @@ if __name__ == "__main__":
           native_latency = match.group(0).split()[-1]
         model_name = model
         if model_name.endswith(".json"):
-          model_name = model_name.split("/")[-1]
-        if model_name.endswith("-config"):
-          model_name = model_name[:-7]
+          model_name = model_name.split("/")[-1][:-5]
         print("Columns: model, seq_len, batch_size, xla_latency, native_latency")
         print(f"Aggregate: {model_name} {seq_len} {batch_size} {xla_latency} {native_latency}")
