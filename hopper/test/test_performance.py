@@ -61,7 +61,7 @@ class TestPyTorchHuggingFacePerformance:
     @pytest.mark.huggingface_top5
     @pytest.mark.bart
     def test_Bart_performance_for_Seq512(self, start_test_exec, request_template, name_template):
-        model, seq, batch = "/opt/ml/code/hopper/test/files/bart-config.json", str(512), [20, 32]
+        model, seq, batch = "/opt/ml/code/hopper/test/files/bart-base.json", str(512), [20, 32]
         request_template["HyperParameters"]["models"] = model
         request_template["HyperParameters"]["sequence_lengths"] = seq
         request_template["HyperParameters"]["batch_sizes"] = " ".join(map(str, batch))
