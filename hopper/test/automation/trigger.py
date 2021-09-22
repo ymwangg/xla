@@ -25,7 +25,7 @@ if __name__ == "__main__":
     test_config = json.load(f)
   # Launch new execution for each model, seq_len
   # Each execution will do all batch sizes for that model, seq_len
-  models = ["bert-base-uncased", "bert-large-uncased", "/opt/ml/code/hopper/test/files/bart-config.json", "roberta-base", "gpt2"]
+  models = ["bert-base-uncased", "bert-large-uncased", "/opt/ml/code/hopper/test/files/bart-base.json", "roberta-base", "gpt2"]
   for model in models:
     for seq_len in [128, 512]:
       test_config["HyperParameters"]["models"] = model
