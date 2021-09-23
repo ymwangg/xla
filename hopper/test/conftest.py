@@ -8,16 +8,25 @@ HOPPER_BENCHMARKING_ACCOUNT = '389009836860'
 
 @pytest.fixture(scope='function')
 def function_uid():
+    '''
+    Returns a unique string specific to a test
+    '''
     return ''.join(random.choices(string.ascii_letters + string.digits, k=5))
 
 
 @pytest.fixture(scope='session')
 def session_uid():
+    '''
+    Returns a unique string specific to a session of tests
+    '''
     return ''.join(random.choices(string.ascii_letters + string.digits, k=5))
 
 
 @pytest.fixture(scope='session')
 def credentials(user):
+    '''
+    Obtains credentials to the testing service
+    '''
     sts_client = boto3.client("sts")
     role = sts_client.assume_role(
                     RoleArn=f"arn:aws:iam::{HOPPER_BENCHMARKING_ACCOUNT}:role/StartTestWorkFlow",
@@ -28,6 +37,9 @@ def credentials(user):
 
 @pytest.fixture(scope='session')
 def start_test_exec(credentials):
+    '''
+    Returns a pre configured call to the testing service
+    '''
     sfn_client = boto3.client(
         "stepfunctions",
         aws_access_key_id=credentials["AccessKeyId"],
@@ -40,6 +52,9 @@ def start_test_exec(credentials):
 
 @pytest.fixture(scope='session')
 def test_directory():
+    '''
+    Returns the path to the hopper/test directory
+    '''
     hopper_test_dir = os.path.join('hopper','test')
     cwd = os.getcwd()
     parent_dir = None
@@ -58,6 +73,10 @@ def test_directory():
 
 @pytest.fixture(scope='session')
 def bootstrap(credentials, test_directory, session_uid):
+    '''
+    Uploads the contents of the hopper/test directory to be bootstrapped into the training container
+    by the testing service
+    '''
     s3_destination = f"s3://hopper-test-scripts-bootstrapping-{HOPPER_BENCHMARKING_ACCOUNT}-us-west-2/{session_uid}"
     env = os.environ.copy()
     env.update({
@@ -77,6 +96,9 @@ def bootstrap(credentials, test_directory, session_uid):
 
 @pytest.fixture(scope='session')
 def user():
+    '''
+    Returns the alias of the user or the AWS service calling the tests
+    '''
     arn = boto3.client('sts').get_caller_identity()['Arn']
     user = arn.split('/')[-1].split('-')[0]
     return user
@@ -84,6 +106,9 @@ def user():
 
 @pytest.fixture(scope='session')
 def cwloggroup(user):
+    '''
+    Default Cloudwatch namespace to upload training logs and metrics
+    '''
     return f"Benchmarks/EC2/PyTorch/{user}"
 
 
@@ -94,6 +119,9 @@ def user_defined_tag():
 
 @pytest.fixture(scope='session')
 def auto_generated_tags(user):
+    '''
+    Tagging training resources for cost accountability
+    '''
     tags = {}
     tags['User'] = user
     tags['UI'] = "pytest"
@@ -104,6 +132,9 @@ def auto_generated_tags(user):
 
 @pytest.fixture(scope='function')
 def tags(user_defined_tag, auto_generated_tags):
+    '''
+    Collates user defined tags and auto generated tags
+    '''
     all_tags = auto_generated_tags.copy()
     all_tags.update(user_defined_tag)
     return all_tags
@@ -116,6 +147,9 @@ def training_container():
 
 @pytest.fixture(scope='function')
 def _request_template(cwloggroup, tags, training_container, bootstrap):
+    '''
+    Prefils the request template for the testing service
+    '''
     with open("automation/test-template-multiple.json") as f:
         test_config = json.load(f)
     test_config['CloudWatchLogGroupName'] = cwloggroup
@@ -131,11 +165,17 @@ def _request_template(cwloggroup, tags, training_container, bootstrap):
 
 @pytest.fixture(scope='function')
 def request_template(_request_template):
+    '''
+    Returns an unique copy of the testing template
+    '''
     return _request_template.copy()
 
 
 @pytest.fixture(scope='function')
 def name_template(session_uid):
+    '''
+    Returns a unique name for an invocation of the testing service
+    '''
     return functools.partial("pt-{session_uid}-{model}-Seq{seq}".format, session_uid=session_uid)
 
 
