@@ -1,6 +1,5 @@
 import argparse
 import sys
-import numpy as np
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--verbosity', type=int, default=2)
@@ -8,11 +7,11 @@ FLAGS, leftovers = parser.parse_known_args()
 sys.argv = [sys.argv[0]] + leftovers
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import torch_xla.core.xla_model as xm
 import unittest
 from torch_xla.amp import syncfree
-import torch.nn as nn
-import torch.nn.functional as F
 
 
 class MNIST(nn.Module):
