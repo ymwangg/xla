@@ -60,6 +60,15 @@ function run_dynamic {
   fi
 }
 
+function run_gpu_test {
+  if [ -x "$(command -v nvidia-smi)" ]; then
+    echo "Running GPU test: $@"
+    run_test "$@"
+  else
+    echo "Skipping GPU test: $@"
+  fi
+}
+
 function run_all_tests {
   run_dynamic python3 "$CDIR/../../test/test_view_ops.py" "$@" -v TestViewOpsXLA
   run_test python3 "$CDIR/../../test/test_torch.py" "$@" -v TestTorchDeviceTypeXLA
@@ -90,6 +99,7 @@ function run_all_tests {
   # run the `run_use_bf16` version and causing test to expect `bf16` for `f64`
   # data.
   run_use_bf16 python3 "$CDIR/test_data_type.py"
+  run_gpu_test python3 "$CDIR/test_syncfree_optimizers.py"
 }
 
 if [ "$LOGFILE" != "" ]; then

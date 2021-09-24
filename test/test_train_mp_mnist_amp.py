@@ -1,5 +1,16 @@
 import args_parse
 
+MODEL_OPTS = {
+    # Using zero gradients optimization for AMP
+    '--use_zero_grad': {
+        'action': 'store_true',
+    },
+    # Using sync_free optimizer for AMP
+    '--use_syncfree_optim': {
+        'action': 'store_true',
+    }
+}
+
 FLAGS = args_parse.parse_common_options(
     datadir='/tmp/mnist-data',
     batch_size=128,
@@ -24,7 +35,7 @@ import torch_xla.utils.utils as xu
 import torch_xla.core.xla_model as xm
 import torch_xla.distributed.xla_multiprocessing as xmp
 import torch_xla.test.test_utils as test_utils
-from torch_xla.amp import autocast, GradScaler
+from torch_xla.amp import autocast, GradScaler, syncfree
 
 
 class MNIST(nn.Module):
@@ -117,9 +128,11 @@ def train_mnist(flags, **kwargs):
   writer = None
   if xm.is_master_ordinal():
     writer = test_utils.get_summary_writer(flags.logdir)
-  optimizer = optim.SGD(model.parameters(), lr=lr, momentum=flags.momentum)
+  optim_cls = syncfree.SGD if FLAGS.use_syncfree_optim else optim.SGD
+  optimizer = optim_cls(model.parameters(), lr=lr, momentum=flags.momentum)
   loss_fn = nn.NLLLoss()
-  scaler = GradScaler()
+  scaler = syncfree.GradScaler() if FLAGS.use_syncfree_optim else GradScaler(
+      use_zero_grad=FLAGS.use_zero_grad)
 
   def train_loop_fn(loader):
     tracker = xm.RateTracker()

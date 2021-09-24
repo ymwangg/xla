@@ -1,11 +1,13 @@
+
 import argparse
 import sys
-
+import numpy as np
+ 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('--verbosity', type=int, default=2)
 FLAGS, leftovers = parser.parse_known_args()
 sys.argv = [sys.argv[0]] + leftovers
-
+ 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,29 +15,27 @@ import torch_xla.core.xla_model as xm
 import unittest
 from torch_xla.amp import syncfree
 
-
+ 
+ 
 class MNIST(nn.Module):
-
-  def __init__(self):
-    super(MNIST, self).__init__()
-    self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-    self.bn1 = nn.BatchNorm2d(10)
-    self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-    self.bn2 = nn.BatchNorm2d(20)
-    self.fc1 = nn.Linear(320, 50)
-    self.fc2 = nn.Linear(50, 10)
-
-  def forward(self, x):
-    x = F.relu(F.max_pool2d(self.conv1(x), 2))
-    x = self.bn1(x)
-    x = F.relu(F.max_pool2d(self.conv2(x), 2))
-    x = self.bn2(x)
-    x = torch.flatten(x, 1)
-    x = F.relu(self.fc1(x))
-    x = self.fc2(x)
-    return F.log_softmax(x, dim=1)
-
-
+   def __init__(self):
+     super(MNIST, self).__init__()
+     self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
+     self.bn1 = nn.BatchNorm2d(10)
+     self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+     self.bn2 = nn.BatchNorm2d(20)
+     self.fc1 = nn.Linear(320, 50)
+     self.fc2 = nn.Linear(50, 10)
+ 
+   def forward(self, x):
+     x = F.relu(F.max_pool2d(self.conv1(x), 2))
+     x = self.bn1(x)
+     x = F.relu(F.max_pool2d(self.conv2(x), 2))
+     x = self.bn2(x)
+     x = torch.flatten(x, 1)
+     x = F.relu(self.fc1(x))
+     x = self.fc2(x)
+     return F.log_softmax(x, dim=1)
 class TestSyncFreeOptimizerBase(unittest.TestCase):
 
   def setUp(self):
@@ -88,7 +88,7 @@ class TestSyncFreeOptimizerBase(unittest.TestCase):
     # check weight
     for p, p_ref in zip(syncfree_model.parameters(), ref_model.parameters()):
       assert p.allclose(p_ref, rtol=1e-2, atol=1e-2)
-
+    
 
 class TestSyncFreeSGD(TestSyncFreeOptimizerBase):
 
@@ -114,6 +114,42 @@ class TestSyncFreeSGD(TestSyncFreeOptimizerBase):
         "nesterov": True,
     })
 
+
+
+class TestSyncFreeAdam(TestSyncFreeOptimizerBase):
+
+  def test_optimizer(self):
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-3,
+        "betas":(0.9,0.99),
+    })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-2,
+        "betas":(0.7,0.77),
+        "weight_decay":1e-4,
+    })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 5e-3,
+        "betas": (0.9, 0.999),
+        "weight_decay": 1e-4,
+    })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-3,
+        "betas": (0.9, 0.999),
+        "weight_decay": 0.1,
+    })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-3,
+        "betas": (0.9, 0.999),
+        "weight_decay": 0.1,
+        "amsgrad":True
+    })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-3,
+        "betas": (0.7, 0.799),
+        "weight_decay": 0.01,
+        "amsgrad":True
+    })
 
 if __name__ == "__main__":
   test = unittest.main(verbosity=FLAGS.verbosity, exit=False)
