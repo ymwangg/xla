@@ -84,7 +84,7 @@ class TestSyncFreeOptimizerBase(unittest.TestCase):
         xm.optimizer_step(ref_optimizer)
       xm.mark_step()
       # check loss
-      # print(i, ref_loss, syncfree_loss)
+      print(i, ref_loss, syncfree_loss)
       assert syncfree_loss.allclose(ref_loss, rtol=1e-3, atol=1e-3)
 
     # check weight

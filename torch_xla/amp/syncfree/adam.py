@@ -115,20 +115,7 @@ class Adam(Optimizer):
                     # record the step after step update
                     state_steps.append(state['step'])
 
-            # self.adam_step_cpp(params_with_grad,
-            #        grads,
-            #        exp_avgs,
-            #        exp_avg_sqs,
-            #        max_exp_avg_sqs,
-            #        state_steps,
-            #        amsgrad=group['amsgrad'],
-            #        beta1=beta1,
-            #        beta2=beta2,
-            #        lr=group['lr'],
-            #        weight_decay=group['weight_decay'],
-            #        eps=group['eps'],
-            #        found_inf=found_inf)
-            self.adam_step_py(params_with_grad,
+            self.adam_step_cpp(params_with_grad,
                    grads,
                    exp_avgs,
                    exp_avg_sqs,
@@ -141,6 +128,19 @@ class Adam(Optimizer):
                    weight_decay=group['weight_decay'],
                    eps=group['eps'],
                    found_inf=found_inf)
+            # self.adam_step_py(params_with_grad,
+            #        grads,
+            #        exp_avgs,
+            #        exp_avg_sqs,
+            #        max_exp_avg_sqs,
+            #        state_steps,
+            #        amsgrad=group['amsgrad'],
+            #        beta1=beta1,
+            #        beta2=beta2,
+            #        lr=group['lr'],
+            #        weight_decay=group['weight_decay'],
+            #        eps=group['eps'],
+            #        found_inf=found_inf)
 
 
         return loss
@@ -161,10 +161,9 @@ class Adam(Optimizer):
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
             step = state_steps[i]
-            max_exp_avg_sq = max_exp_avg_sqs[i] 
-
+            # max_exp_avg_sq = max_exp_avg_sqs[i] 
             torch_xla._XLAC._xla_adam_optimizer_step(found_inf, step, param, grad,
-                                                    exp_avg, exp_avg_sq, max_exp_avg_sq, 
+                                                    exp_avg, exp_avg_sq, max_exp_avg_sqs, 
                                                     amsgrad, beta1, beta2, lr, weight_decay, eps)
 
     def adam_step_py(self, params: List[Tensor], grads: List[Tensor],
