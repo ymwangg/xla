@@ -495,8 +495,7 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
   // First Running Coefficient
   // exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
   ir::Value beta1_value = GetIrValueForScalar(beta1, grad.shape(), grad.GetDevice());
-  ir::Value one_value =
-      GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
+  ir::Value one_value = GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
   auto exp_avg_value = exp_avg.GetIrValue() * beta1_value + grad.GetIrValue() * (one_value - beta1_value);
   exp_avg.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg.GetIrValue(), exp_avg_value));
    
@@ -504,8 +503,67 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
   ir::Value beta2_value = GetIrValueForScalar(beta2, grad.shape(), grad.GetDevice());
   auto exp_avg_sq_value = exp_avg_sq.GetIrValue() * beta2_value + grad.GetIrValue() * (one_value - beta2_value);
   exp_avg_sq.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg_sq.GetIrValue(), exp_avg_sq_value));
+  
 
+  // amsgrad
+  ir::Value eps_value = GetIrValueForScalar(eps, exp_avg_sq.shape(), exp_avg_sq.GetDevice());
+  ir::Value bias_correction2_value = GetIrValueForScalar(bias_correction2, exp_avg_sq.shape(), exp_avg_sq.GetDevice());
+  ir::Value denom = GetIrValueForScalar(1.0, exp_avg_sq.shape(), exp_avg_sq.GetDevice()) 
+  if(amsgrad){
+    ;
+  }
+  else{
+    if(step){
+      denom = (ir::ops::Sqrt(exp_avg_sq.GetIrValue())/ ir::ops::Sqrt(bias_correction2_value) + eps_value).GetIrValue();
+    }
+  }
+  // Take the step
+  auto step_size = 0;
+  if(step){
+    step_size = lr / bias_correction1;
+  }
+  ir::Value step_size_value = GetIrValueForScalar(step_size, exp_avg.shape(), exp_avg.GetDevice());
 
+  // Update Param
+  auto param_value = param.GetIrValue() - step_size_value * ( exp_avg.GetIrValue() / denom); 
+  auto zero_value = GetIrValueForScalar(0, exp_avg.shape(), exp_avg.GetDevice());
+  param.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), zero_value, param));
+  // if not found_inf:
+  //     param.addcdiv_(exp_avg, denom, value=-step_size)
+  // else:
+  //     param.add_(torch.zeros_like(exp_avg))
+
+  //  if (weight_decay != 0) {
+  //    ir::Value weight_decay_value =
+  //        GetIrValueForScalar(weight_decay, param.shape(), param.GetDevice());
+  //    d_p_value = d_p_value + param.GetIrValue() * weight_decay_value;
+  //  }
+  //  // momentum
+  //  if (momentum != 0) {
+  //    auto buf_value = buf.GetIrValue();
+  //    ir::Value momentum_value =
+  //        GetIrValueForScalar(momentum, param.shape(), param.GetDevice());
+  //    ir::Value dampening_factor =
+  //        GetIrValueForScalar(1.0 - dampening, param.shape(), param.GetDevice());
+  //    buf_value = ir::ops::Where(
+  //        step.GetIrValue(),
+  //        buf_value * momentum_value + d_p_value * dampening_factor, d_p_value);
+  //    d_p_value = nesterov ? d_p_value + buf_value * momentum_value : buf_value;
+  //    buf.SetInPlaceIrValue(
+  //        ir::ops::Where(found_inf.GetIrValue(), buf.GetIrValue(), buf_value));
+  //  }
+  //  // update param
+  //  ir::Value lr_value =
+  //      GetIrValueForScalar(lr, param.shape(), param.GetDevice());
+  //  param.SetInPlaceIrValue(
+  //      ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(),
+  //                     param.GetIrValue() - d_p_value * lr_value));
+  //  // update step counter
+  //  ir::Value one_value =
+  //      GetIrValueForScalar(1.0, step.shape(), step.GetDevice());
+  //  step.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(),
+  //                                        step.GetIrValue(),
+	//                                          step.GetIrValue() + one_value));
 }
 
 std::vector<XLATensor> XLATensor::user_computation(
