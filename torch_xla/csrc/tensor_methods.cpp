@@ -433,8 +433,8 @@ void XLATensor::sgd_optimizer_step(const XLATensor& found_inf, XLATensor& step,
  
 
 void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
-                                 XLATensor& param, const XLATensor& grad, 
-                                 double exp_avg, double exp_avg_sq, double max_exp_avg_sq,
+                                 XLATensor& param, XLATensor& grad, 
+                                 XLATensor& exp_avg, XLATensor& exp_avg_sq, XLATensor& max_exp_avg_sq,
                                  bool amsgrad, double beta1, double beta2, 
                                  double lr, double weight_decay, double eps) {
   /* Python version
@@ -481,8 +481,9 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
                 param.add_(torch.zeros_like(exp_avg))
   */
 
-  auto bias_correction1 = 1 - pow(beta1, step);
-  auto bias_correction2 = 1 - pow(beta2, step);
+  
+  auto bias_correction1 = 1 - std::pow(beta1, step);
+  auto bias_correction2 = 1 - std::pow(beta2, step);
 
 
   // weight_decay
@@ -529,7 +530,42 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
   auto param_value = param.GetIrValue() - step_size_value * ( exp_avg.GetIrValue() / denom); 
   auto zero_value = GetIrValueForScalar(0, exp_avg.shape(), exp_avg.GetDevice());
   param.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), zero_value, param));
+  // if not found_inf:
+  //     param.addcdiv_(exp_avg, denom, value=-step_size)
+  // else:
+  //     param.add_(torch.zeros_like(exp_avg))
 
+  //  if (weight_decay != 0) {
+  //    ir::Value weight_decay_value =
+  //        GetIrValueForScalar(weight_decay, param.shape(), param.GetDevice());
+  //    d_p_value = d_p_value + param.GetIrValue() * weight_decay_value;
+  //  }
+  //  // momentum
+  //  if (momentum != 0) {
+  //    auto buf_value = buf.GetIrValue();
+  //    ir::Value momentum_value =
+  //        GetIrValueForScalar(momentum, param.shape(), param.GetDevice());
+  //    ir::Value dampening_factor =
+  //        GetIrValueForScalar(1.0 - dampening, param.shape(), param.GetDevice());
+  //    buf_value = ir::ops::Where(
+  //        step.GetIrValue(),
+  //        buf_value * momentum_value + d_p_value * dampening_factor, d_p_value);
+  //    d_p_value = nesterov ? d_p_value + buf_value * momentum_value : buf_value;
+  //    buf.SetInPlaceIrValue(
+  //        ir::ops::Where(found_inf.GetIrValue(), buf.GetIrValue(), buf_value));
+  //  }
+  //  // update param
+  //  ir::Value lr_value =
+  //      GetIrValueForScalar(lr, param.shape(), param.GetDevice());
+  //  param.SetInPlaceIrValue(
+  //      ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(),
+  //                     param.GetIrValue() - d_p_value * lr_value));
+  //  // update step counter
+  //  ir::Value one_value =
+  //      GetIrValueForScalar(1.0, step.shape(), step.GetDevice());
+  //  step.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(),
+  //                                        step.GetIrValue(),
+	//                                          step.GetIrValue() + one_value));
 }
 
 std::vector<XLATensor> XLATensor::user_computation(

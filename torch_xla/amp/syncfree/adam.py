@@ -174,6 +174,7 @@ class Adam(Optimizer):
                     weight_decay: float, eps: float, found_inf: Tensor):
 
         for i, param in enumerate(params):
+            import pdb;pdb.set_trace()
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
