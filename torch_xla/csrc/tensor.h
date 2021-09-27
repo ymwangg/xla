@@ -215,8 +215,8 @@ class XLATensor {
                                   bool nesterov);
 
   static void adam_optimizer_step(const XLATensor& found_inf, int step, 
-                                 XLATensor& param, const XLATensor& grad, 
-                                 double exp_avg, double exp_avg_sq, double max_exp_avg_sq,
+                                 XLATensor& param, XLATensor& grad, 
+                                 XLATensor& exp_avg, XLATensor& exp_avg_sq, XLATensor& max_exp_avg_sq,
                                  bool amsgrad, double beta1, double beta2, 
                                  double lr, double weight_decay, double eps);
 
