@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <math.h> 
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
@@ -138,6 +139,7 @@
 #include "torch_xla/csrc/tensor.h"
 #include "torch_xla/csrc/tensor_ops.h"
 #include "torch_xla/csrc/tensor_util.h"
+#include "xla/torch_xla/csrc/tensor.h"
 
 namespace torch_xla {
 namespace {
@@ -384,47 +386,126 @@ XLATensor XLATensor::get_dimensions_size(const XLATensor& input,
                           at::ScalarType::Int);
 }
 
+
 void XLATensor::sgd_optimizer_step(const XLATensor& found_inf, XLATensor& step,
-                                   XLATensor& param, const XLATensor& d_p,
-                                   XLATensor& buf, double weight_decay,
-                                   double momentum, double lr, double dampening,
-                                   bool nesterov) {
-  /* XLA version of sgd algorithm
-   * https://github.com/pytorch/pytorch/blob/master/torch/optim/_functional.py#L162-L180
-   */
-  auto d_p_value = d_p.GetIrValue();
+                                    XLATensor& param, const XLATensor& d_p,
+                                    XLATensor& buf, double weight_decay,
+                                    double momentum, double lr, double dampening,
+                                    bool nesterov) {
+   /* XLA version of sgd algorithm
+    * https://github.com/pytorch/pytorch/blob/master/torch/optim/_functional.py#L162-L180
+    */
+   auto d_p_value = d_p.GetIrValue();
+   // weight_decay
+   if (weight_decay != 0) {
+     ir::Value weight_decay_value =
+         GetIrValueForScalar(weight_decay, param.shape(), param.GetDevice());
+     d_p_value = d_p_value + param.GetIrValue() * weight_decay_value;
+   }
+   // momentum
+   if (momentum != 0) {
+     auto buf_value = buf.GetIrValue();
+     ir::Value momentum_value =
+         GetIrValueForScalar(momentum, param.shape(), param.GetDevice());
+     ir::Value dampening_factor =
+         GetIrValueForScalar(1.0 - dampening, param.shape(), param.GetDevice());
+     buf_value = ir::ops::Where(
+         step.GetIrValue(),
+         buf_value * momentum_value + d_p_value * dampening_factor, d_p_value);
+     d_p_value = nesterov ? d_p_value + buf_value * momentum_value : buf_value;
+     buf.SetInPlaceIrValue(
+         ir::ops::Where(found_inf.GetIrValue(), buf.GetIrValue(), buf_value));
+   }
+   // update param
+   ir::Value lr_value =
+       GetIrValueForScalar(lr, param.shape(), param.GetDevice());
+   param.SetInPlaceIrValue(
+       ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(),
+                      param.GetIrValue() - d_p_value * lr_value));
+   // update step counter
+   ir::Value one_value =
+       GetIrValueForScalar(1.0, step.shape(), step.GetDevice());
+   step.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(),
+                                         step.GetIrValue(),
+	                                         step.GetIrValue() + one_value));
+ }
+ 
+
+void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
+                                 XLATensor& param, const XLATensor& grad, 
+                                 double exp_avg, double exp_avg_sq, double max_exp_avg_sq,
+                                 bool amsgrad, double beta1, double beta2, 
+                                 double lr, double weight_decay, double eps) {
+  /* Python version
+        for i, param in enumerate(params):
+            grad = grads[i]
+            exp_avg = exp_avgs[i]
+            exp_avg_sq = exp_avg_sqs[i]
+            step = state_steps[i]
+
+            bias_correction1 = 1 - beta1 ** step
+            bias_correction2 = 1 - beta2 ** step
+
+            if weight_decay != 0:
+                grad = torch.where(found_inf.to(torch.bool), grad, grad.add(param, alpha=weight_decay))
+
+
+            # Decay the first and second moment running average coefficient
+            if not found_inf.to(torch.bool):
+                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+            if not found_inf.to(torch.bool):
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad.conj(), value=1 - beta2)
+            if amsgrad:
+                # Maintains the maximum of all 2nd moment running avg. till now
+                torch.maximum(max_exp_avg_sqs[i], exp_avg_sq, out=max_exp_avg_sqs[i])
+                # Use the max. for normalizing running avg. of gradient
+                if step:
+                    denom = (max_exp_avg_sqs[i].sqrt() / math.sqrt(bias_correction2)).add_(eps)
+                else:
+                    denom = torch.ones_like(max_exp_avg_sqs[i])
+            else:
+                if step:
+                    denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)
+                else:
+                    denom = torch.ones_like(exp_avg_sq)
+
+            if step:
+                step_size = lr / bias_correction1
+            else:
+                step_size = 0
+            
+            if not found_inf:
+                param.addcdiv_(exp_avg, denom, value=-step_size)
+            else:
+                param.add_(torch.zeros_like(exp_avg))
+  */
+
+  auto bias_correction1 = 1 - pow(beta1, step);
+  auto bias_correction2 = 1 - pow(beta2, step);
+
+
   // weight_decay
   if (weight_decay != 0) {
     ir::Value weight_decay_value =
-        GetIrValueForScalar(weight_decay, param.shape(), param.GetDevice());
-    d_p_value = d_p_value + param.GetIrValue() * weight_decay_value;
+        GetIrValueForScalar(weight_decay, grad.shape(), grad.GetDevice());
+    grad.SetInPlaceIrValue(ir::ops::Where(
+        found_inf.GetIrValue(), grad.GetIrValue(),
+        grad.GetIrValue() + param.GetIrValue() * weight_decay_value));
   }
-  // momentum
-  if (momentum != 0) {
-    auto buf_value = buf.GetIrValue();
-    ir::Value momentum_value =
-        GetIrValueForScalar(momentum, param.shape(), param.GetDevice());
-    ir::Value dampening_factor =
-        GetIrValueForScalar(1.0 - dampening, param.shape(), param.GetDevice());
-    buf_value = ir::ops::Where(
-        step.GetIrValue(),
-        buf_value * momentum_value + d_p_value * dampening_factor, d_p_value);
-    d_p_value = nesterov ? d_p_value + buf_value * momentum_value : buf_value;
-    buf.SetInPlaceIrValue(
-        ir::ops::Where(found_inf.GetIrValue(), buf.GetIrValue(), buf_value));
-  }
-  // update param
-  ir::Value lr_value =
-      GetIrValueForScalar(lr, param.shape(), param.GetDevice());
-  param.SetInPlaceIrValue(
-      ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(),
-                     param.GetIrValue() - d_p_value * lr_value));
-  // update step counter
+  // First Running Coefficient
+  // exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+  ir::Value beta1_value = GetIrValueForScalar(beta1, grad.shape(), grad.GetDevice());
   ir::Value one_value =
-      GetIrValueForScalar(1.0, step.shape(), step.GetDevice());
-  step.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(),
-                                        step.GetIrValue(),
-                                        step.GetIrValue() + one_value));
+      GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
+  auto exp_avg_value = exp_avg.GetIrValue() * beta1_value + grad.GetIrValue() * (one_value - beta1_value);
+  exp_avg.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg.GetIrValue(), exp_avg_value));
+   
+  // Second Running Coefficient
+  ir::Value beta2_value = GetIrValueForScalar(beta2, grad.shape(), grad.GetDevice());
+  auto exp_avg_sq_value = exp_avg_sq.GetIrValue() * beta2_value + grad.GetIrValue() * (one_value - beta2_value);
+  exp_avg_sq.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg_sq.GetIrValue(), exp_avg_sq_value));
+
+
 }
 
 std::vector<XLATensor> XLATensor::user_computation(
