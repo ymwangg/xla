@@ -437,9 +437,8 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, XLATensor& step,
                                  bool amsgrad, double beta1, double beta2, 
                                  double lr, double weight_decay, double eps) {
   ir::Value one_value = GetIrValueForScalar(1.0, found_inf.shape(), found_inf.GetDevice());
-
+  // Step Update 
   step.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), step.GetIrValue(), step.GetIrValue() + one_value));
-  // ir::Value step_value = GetIrValueForScalar(step, found_inf.shape(), found_inf.GetDevice());
   ir::Value step_value = step.GetIrValue();
   ir::Value beta1_value = GetIrValueForScalar(beta1, found_inf.shape(), found_inf.GetDevice());
   ir::Value beta2_value = GetIrValueForScalar(beta2, found_inf.shape(), found_inf.GetDevice());
@@ -447,11 +446,7 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, XLATensor& step,
   
   auto bias_correction1 = one_value - ir::ops::Pow(beta1_value, step_value);
   auto bias_correction2 = one_value - ir::ops::Pow(beta2_value, step_value);
-  // Step Update 
-  // auto bias_correction1 = 1 - std::pow(beta1, step);
-  // auto bias_correction2 = 1 - std::pow(beta2, step);
-
-
+  
   // weight_decay
   if (weight_decay != 0) {
     ir::Value weight_decay_value =
@@ -464,13 +459,10 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, XLATensor& step,
   // exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
   auto exp_avg_value = exp_avg.GetIrValue() * beta1_value + grad.GetIrValue() * (one_value - beta1_value);
   exp_avg.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg.GetIrValue(), exp_avg_value));
-  // exp_avg.SetInPlaceIrValue(exp_avg_value);
    
   // Second Running Coefficient
-  //exp_avg_sq.mul_(beta2).addcmul_(grad, grad.conj(), value=1 - beta2)
   auto exp_avg_sq_value = exp_avg_sq.GetIrValue() * beta2_value + grad.GetIrValue() * grad.GetIrValue() * (one_value - beta2_value);
   exp_avg_sq.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg_sq.GetIrValue(), exp_avg_sq_value));
-  // exp_avg_sq.SetInPlaceIrValue(exp_avg_sq_value);
   
 
   // amsgrad
@@ -487,25 +479,11 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, XLATensor& step,
   ir::Value denom_init = GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
   ir::Value denom = ir::ops::Where(step_value, denom_compute, denom_init);
 
-  if(amsgrad){
-    ;
-  }
-  else{
-    ;
-    // if(step){
-    // denom = (exp_avg_sq_sqrt / bias_sqrt) + eps_value;
-    // }
-    // if(step){
-    //   denom.SetInPlaceIrValue(ir::ops::Sqrt(exp_avg_sq.GetIrValue())/ (ir::ops::Sqrt(bias_correction2_value) + eps_value));
-    // }
-  }
   // Take the step
-  // ir::Value step_size_compute = GetIrValueForScalar(lr/bias_correction1, grad.shape(), grad.GetDevice());
   ir::Value step_size_compute = GetIrValueForScalar(lr, grad.shape(), grad.GetDevice()) / bias_correction1;
   ir::Value step_size_value = ir::ops::Where(step_value, step_size_compute, GetIrValueForScalar(0, grad.shape(), grad.GetDevice()));
 
   // Update Param
-  // param.addcdiv_(exp_avg, denom, value=-step_size)
   auto param_value = param.GetIrValue() - step_size_value * (exp_avg.GetIrValue() / denom);
   param.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(), param_value));
 }
