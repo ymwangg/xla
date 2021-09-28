@@ -63,7 +63,6 @@ class TestSyncFreeOptimizerBase(unittest.TestCase):
     data = torch.rand(32, 1, 28, 28).to(device)
     target = torch.zeros(32).to(device)
     # training loop
-    print(syncfree_optimizer, ref_optimizer)
     for i in range(10):
       # syncfree step
       syncfree_optimizer.zero_grad()
@@ -84,42 +83,36 @@ class TestSyncFreeOptimizerBase(unittest.TestCase):
         xm.optimizer_step(ref_optimizer)
       xm.mark_step()
       # check loss
-      print(i, ref_loss, syncfree_loss, flush=True)
       assert syncfree_loss.allclose(ref_loss, rtol=1e-3, atol=1e-3)
 
     # check weight
     for p, p_ref in zip(syncfree_model.parameters(), ref_model.parameters()):
-      # print(p, p_ref)
-      try:
-        assert p.allclose(p_ref, rtol=1e-2, atol=1e-2)
-      except:
-        print("Didn't Work", p, p_ref)
-        continue
+      assert p.allclose(p_ref, rtol=1e-2, atol=1e-2)
     
 
-# class TestSyncFreeSGD(TestSyncFreeOptimizerBase):
+class TestSyncFreeSGD(TestSyncFreeOptimizerBase):
 
-#   def test_optimizer(self):
-#     self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
-#         "lr": 1e-2,
-#         "momentum": 0.5,
-#     })
-#     self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
-#         "lr": 1e-2,
-#         "weight_decay": 0.1,
-#     })
-#     self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
-#         "lr": 1e-2,
-#         "momentum": 0.5,
-#         "weight_decay": 0.1,
-#         "dampening": 0.1,
-#     })
-#     self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
-#         "lr": 1e-2,
-#         "momentum": 0.5,
-#         "weight_decay": 0.1,
-#         "nesterov": True,
-#     })
+  def test_optimizer(self):
+    self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
+        "lr": 1e-2,
+        "momentum": 0.5,
+    })
+    self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
+        "lr": 1e-2,
+        "weight_decay": 0.1,
+    })
+    self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
+        "lr": 1e-2,
+        "momentum": 0.5,
+        "weight_decay": 0.1,
+        "dampening": 0.1,
+    })
+    self._test_optimizer(syncfree.SGD, torch.optim.SGD, {
+        "lr": 1e-2,
+        "momentum": 0.5,
+        "weight_decay": 0.1,
+        "nesterov": True,
+    })
 
 
 

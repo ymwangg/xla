@@ -87,14 +87,10 @@ class Adam(Optimizer):
                     grads.append(p.grad)
 
                     state = self.state[p]
-                    # if 'step' not in state:
-                    #     state['step'] = torch.zeros_like(found_inf)                    
-                    # state_steps.append(state['step'])
-                    # Lazy state initialization
 
+                    # Lazy state initialization
                     if len(state) == 0:
-                        state['step'] = torch.zeros_like(found_inf) # Changed 
-                        # state['step'] = 0
+                        state['step'] = torch.zeros_like(found_inf) 
                         # Exponential moving average of gradient values
                         state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                         # Exponential moving average of squared gradient values
@@ -109,10 +105,6 @@ class Adam(Optimizer):
                     if group['amsgrad']:
                         max_exp_avg_sqs.append(state['max_exp_avg_sq'])
 
-                    # update the steps for each param group update
-                    # if not found_inf:
-                    #     state['step'] += 1
-                    # record the step after step update
                     state_steps.append(state['step'])
 
             self.adam_step_cpp(params_with_grad,
@@ -128,20 +120,6 @@ class Adam(Optimizer):
                    weight_decay=group['weight_decay'],
                    eps=group['eps'],
                    found_inf=found_inf)
-            # self.adam_step_py(params_with_grad,
-            #        grads,
-            #        exp_avgs,
-            #        exp_avg_sqs,
-            #        max_exp_avg_sqs,
-            #        state_steps,
-            #        amsgrad=group['amsgrad'],
-            #        beta1=beta1,
-            #        beta2=beta2,
-            #        lr=group['lr'],
-            #        weight_decay=group['weight_decay'],
-            #        eps=group['eps'],
-            #        found_inf=found_inf)
-
 
         return loss
 
@@ -151,9 +129,7 @@ class Adam(Optimizer):
                     max_exp_avg_sqs: List[Tensor], state_steps: List[Tensor],
                     amsgrad: bool, beta1: float, beta2: float, lr: float, 
                     weight_decay: float, eps: float, found_inf: Tensor):
-        r"""Functional API that performs SGD algorithm computation.
-
-            See :class:`~torch.optim.SGD` for details.
+        r"""Functional API that performs Adam algorithm computation
             """
 
         for i, param in enumerate(params):
@@ -168,54 +144,3 @@ class Adam(Optimizer):
             torch_xla._XLAC._xla_adam_optimizer_step(found_inf, step, param, grad,
                                                     exp_avg, exp_avg_sq, max_exp_avg_sq, 
                                                     amsgrad, beta1, beta2, lr, weight_decay, eps)
-
-    def adam_step_py(self, params: List[Tensor], grads: List[Tensor],
-                    exp_avgs: List[Optional[Tensor]], exp_avg_sqs: List[Tensor], 
-                    max_exp_avg_sqs: List[Tensor], state_steps: List[int],
-                    amsgrad: bool, beta1: float, beta2: float, lr: float, 
-                    weight_decay: float, eps: float, found_inf: Tensor):
-
-        for i, param in enumerate(params):
-            import pdb;pdb.set_trace()
-            grad = grads[i]
-            exp_avg = exp_avgs[i]
-            exp_avg_sq = exp_avg_sqs[i]
-            step = state_steps[i]
-
-            if not found_inf:
-                step.add_(1.0)
-
-            bias_correction1 = 1 - beta1 ** (step.item())
-            bias_correction2 = 1 - beta2 ** (step.item())
-
-            if weight_decay != 0:
-                grad = torch.where(found_inf.to(torch.bool), grad, grad.add(param, alpha=weight_decay))
-
-            # Decay the first and second moment running average coefficient
-            if not found_inf:
-                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
-            if not found_inf:
-                exp_avg_sq.mul_(beta2).addcmul_(grad, grad.conj(), value=1 - beta2)
-            if amsgrad:
-                # Maintains the maximum of all 2nd moment running avg. till now
-                torch.maximum(max_exp_avg_sqs[i], exp_avg_sq, out=max_exp_avg_sqs[i])
-                # Use the max. for normalizing running avg. of gradient
-                if step:
-                    denom = (max_exp_avg_sqs[i].sqrt() / math.sqrt(bias_correction2)).add_(eps)
-                else:
-                    denom = torch.ones_like(max_exp_avg_sqs[i])
-            else:
-                if step:
-                    denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)
-                else:
-                    denom = torch.ones_like(exp_avg_sq)
-
-            if step:
-                step_size = lr / bias_correction1
-            else:
-                step_size = 0
-            
-            if not found_inf:
-                param.addcdiv_(exp_avg, denom, value=-step_size)
-            else:
-                param.add_(torch.zeros_like(exp_avg))
