@@ -130,11 +130,11 @@ class TestSyncFreeAdam(TestSyncFreeOptimizerBase):
         "lr": 1e-3,
         "betas":(0.9,0.99),
     })
-    # self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
-    #     "lr": 1e-2,
-    #     "betas":(0.7,0.77),
-    #     "weight_decay":1e-4,
-    # })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-2,
+        "betas":(0.7,0.77),
+        "weight_decay":1e-4,
+    })
     self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
         "lr": 5e-3,
         "betas": (0.9, 0.999),
@@ -145,12 +145,18 @@ class TestSyncFreeAdam(TestSyncFreeOptimizerBase):
         "betas": (0.9, 0.999),
         "weight_decay": 0.1,
     })
-    # self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
-    #     "lr": 1e-3,
-    #     "betas": (0.9, 0.999),
-    #     "weight_decay": 0.1,
-    #     "amsgrad":True
-    # })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-3,
+        "betas": (0.9, 0.999),
+        "weight_decay": 0.1,
+        "amsgrad":True
+    })
+    self._test_optimizer(syncfree.Adam, torch.optim.Adam, {
+        "lr": 1e-3,
+        "betas": (0.7, 0.799),
+        "weight_decay": 0.01,
+        "amsgrad":True
+    })
 
 if __name__ == "__main__":
   test = unittest.main(verbosity=FLAGS.verbosity, exit=False)

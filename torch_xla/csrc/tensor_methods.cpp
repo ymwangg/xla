@@ -475,11 +475,16 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, XLATensor& step,
   
 
   // amsgrad
+  ir::Value amsgrad_value = GetIrValueForScalar(amsgrad, found_inf.shape(), found_inf.GetDevice());
+  max_exp_avg_sq.SetInPlaceIrValue(ir::ops::Max(max_exp_avg_sq.GetIrValue(), exp_avg_sq.GetIrValue()));
+  
   ir::Value eps_value = GetIrValueForScalar(eps, grad.shape(), grad.GetDevice());
   auto exp_avg_sq_sqrt = ir::ops::Sqrt(exp_avg_sq.GetIrValue());
-  // auto bias_sqrt = ir::ops::Sqrt(GetIrValueForScalar(bias_correction2, grad.shape(), grad.GetDevice()));
+  auto max_exp_avg_sq_sqrt = ir::ops::Sqrt(max_exp_avg_sq.GetIrValue());
   auto bias_sqrt = ir::ops::Sqrt(bias_correction2);
-  ir::Value denom_compute = (exp_avg_sq_sqrt / bias_sqrt) + eps_value;
+  ir::Value denom_compute_without_amsgrad = (exp_avg_sq_sqrt / bias_sqrt) + eps_value;
+  ir::Value denom_compute_with_amsgrad = (max_exp_avg_sq_sqrt / bias_sqrt) + eps_value;
+  ir::Value denom_compute = ir::ops::Where(amsgrad_value, denom_compute_with_amsgrad, denom_compute_without_amsgrad);
   ir::Value denom_init = GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
   ir::Value denom = ir::ops::Where(step_value, denom_compute, denom_init);
 
