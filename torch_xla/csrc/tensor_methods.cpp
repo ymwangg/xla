@@ -499,72 +499,59 @@ void XLATensor::adam_optimizer_step(const XLATensor& found_inf, int step,
   ir::Value one_value = GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
   auto exp_avg_value = exp_avg.GetIrValue() * beta1_value + grad.GetIrValue() * (one_value - beta1_value);
   exp_avg.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg.GetIrValue(), exp_avg_value));
+  // exp_avg.SetInPlaceIrValue(exp_avg_value);
    
   // Second Running Coefficient
+  //exp_avg_sq.mul_(beta2).addcmul_(grad, grad.conj(), value=1 - beta2)
   ir::Value beta2_value = GetIrValueForScalar(beta2, grad.shape(), grad.GetDevice());
-  auto exp_avg_sq_value = exp_avg_sq.GetIrValue() * beta2_value + grad.GetIrValue() * (one_value - beta2_value);
+  auto exp_avg_sq_value = exp_avg_sq.GetIrValue() * beta2_value + grad.GetIrValue() * grad.GetIrValue() * (one_value - beta2_value);
   exp_avg_sq.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), exp_avg_sq.GetIrValue(), exp_avg_sq_value));
+  // exp_avg_sq.SetInPlaceIrValue(exp_avg_sq_value);
   
 
   // amsgrad
-  ir::Value eps_value = GetIrValueForScalar(eps, exp_avg_sq.shape(), exp_avg_sq.GetDevice());
-  ir::Value bias_correction2_value = GetIrValueForScalar(bias_correction2, exp_avg_sq.shape(), exp_avg_sq.GetDevice());
-  ir::Value denom = GetIrValueForScalar(1.0, exp_avg_sq.shape(), exp_avg_sq.GetDevice());
+  ir::Value eps_value = GetIrValueForScalar(eps, grad.shape(), grad.GetDevice());
+  auto exp_avg_sq_sqrt = ir::ops::Sqrt(exp_avg_sq.GetIrValue());
+  auto bias_sqrt = ir::ops::Sqrt(GetIrValueForScalar(bias_correction2, grad.shape(), grad.GetDevice()));
+  ir::Value denom_compute = (exp_avg_sq_sqrt / bias_sqrt) + eps_value;
+  ir::Value denom_init = GetIrValueForScalar(1.0, grad.shape(), grad.GetDevice());
+  ir::Value step_value = GetIrValueForScalar(step, grad.shape(), grad.GetDevice());
+  ir::Value denom = ir::ops::Where(step_value, denom_compute, denom_init);
+
   if(amsgrad){
     ;
   }
   else{
-    if(step){
-      denom = ir::ops::Sqrt(exp_avg_sq.GetIrValue())/ ir::ops::Sqrt(bias_correction2_value) + eps_value;
-    }
+    ;
+    // if(step){
+    // denom = (exp_avg_sq_sqrt / bias_sqrt) + eps_value;
+    // }
+    // if(step){
+    //   denom.SetInPlaceIrValue(ir::ops::Sqrt(exp_avg_sq.GetIrValue())/ (ir::ops::Sqrt(bias_correction2_value) + eps_value));
+    // }
   }
   // Take the step
-  auto step_size = 0;
-  if(step){
-    step_size = lr / bias_correction1;
-  }
-  ir::Value step_size_value = GetIrValueForScalar(step_size, exp_avg.shape(), exp_avg.GetDevice());
+  // std::cout << "Printing step " << step << std::endl; 
+  ir::Value step_size_compute = GetIrValueForScalar(lr/bias_correction1, grad.shape(), grad.GetDevice());
+  ir::Value step_size_value = ir::ops::Where(step_value, step_size_compute, GetIrValueForScalar(0, grad.shape(), grad.GetDevice()));
+  // auto step_size = 0;
+  // if(step >= 1){
+  //   std::cout << "We are inside the if condition" << std::endl;
+  //   step_size = lr/bias_correction1;
+  //   std::cout << "Step Size Inside " << step_size << std::endl;
+  // }
+  // std::cout << "Step Size Outside " << step_size << std::endl;
+  // // auto step_size = lr/bias_correction1;
+  
+
+  // ir::Value step_size_value = GetIrValueForScalar(step_size, grad.shape(), grad.GetDevice());
 
   // Update Param
-  auto param_value = param.GetIrValue() - step_size_value * ( exp_avg.GetIrValue() / denom); 
-  auto zero_value = GetIrValueForScalar(0, exp_avg.shape(), exp_avg.GetDevice());
-  param.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), zero_value, param_value));
-  // if not found_inf:
-  //     param.addcdiv_(exp_avg, denom, value=-step_size)
-  // else:
-  //     param.add_(torch.zeros_like(exp_avg))
-
-  //  if (weight_decay != 0) {
-  //    ir::Value weight_decay_value =
-  //        GetIrValueForScalar(weight_decay, param.shape(), param.GetDevice());
-  //    d_p_value = d_p_value + param.GetIrValue() * weight_decay_value;
-  //  }
-  //  // momentum
-  //  if (momentum != 0) {
-  //    auto buf_value = buf.GetIrValue();
-  //    ir::Value momentum_value =
-  //        GetIrValueForScalar(momentum, param.shape(), param.GetDevice());
-  //    ir::Value dampening_factor =
-  //        GetIrValueForScalar(1.0 - dampening, param.shape(), param.GetDevice());
-  //    buf_value = ir::ops::Where(
-  //        step.GetIrValue(),
-  //        buf_value * momentum_value + d_p_value * dampening_factor, d_p_value);
-  //    d_p_value = nesterov ? d_p_value + buf_value * momentum_value : buf_value;
-  //    buf.SetInPlaceIrValue(
-  //        ir::ops::Where(found_inf.GetIrValue(), buf.GetIrValue(), buf_value));
-  //  }
-  //  // update param
-  //  ir::Value lr_value =
-  //      GetIrValueForScalar(lr, param.shape(), param.GetDevice());
-  //  param.SetInPlaceIrValue(
-  //      ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(),
-  //                     param.GetIrValue() - d_p_value * lr_value));
-  //  // update step counter
-  //  ir::Value one_value =
-  //      GetIrValueForScalar(1.0, step.shape(), step.GetDevice());
-  //  step.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(),
-  //                                        step.GetIrValue(),
-	//                                          step.GetIrValue() + one_value));
+  // param.addcdiv_(exp_avg, denom, value=-step_size)
+  auto param_value = param.GetIrValue() - step_size_value * (exp_avg.GetIrValue() / denom);
+  // auto param_value = param.GetIrValue() - step_size_value * ( exp_avg.GetIrValue()); 
+  // auto zero_value = GetIrValueForScalar(0, grad.shape(), grad.GetDevice());
+  param.SetInPlaceIrValue(ir::ops::Where(found_inf.GetIrValue(), param.GetIrValue(), param_value));
 }
 
 std::vector<XLATensor> XLATensor::user_computation(
