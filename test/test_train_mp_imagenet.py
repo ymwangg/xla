@@ -197,12 +197,17 @@ def train_imagenet():
   writer = None
   if xm.is_master_ordinal():
     writer = test_utils.get_summary_writer(FLAGS.logdir)
-  optim_cls = syncfree.SGD if FLAGS.amp and FLAGS.use_syncfree_optim else optim.SGD
+#   optim_cls = syncfree.SGD if FLAGS.amp and FLAGS.use_syncfree_optim else optim.SGD
+#   optimizer = optim_cls(
+#       model.parameters(),
+#       lr=FLAGS.lr,
+#       momentum=FLAGS.momentum,
+#       weight_decay=1e-4)
+  optim_cls = syncfree.Adam if FLAGS.amp and FLAGS.use_syncfree_optim else optim.Adam
+  print(optim_cls)
   optimizer = optim_cls(
       model.parameters(),
-      lr=FLAGS.lr,
-      momentum=FLAGS.momentum,
-      weight_decay=1e-4)
+      lr=FLAGS.lr)
   num_training_steps_per_epoch = train_dataset_len // (
       FLAGS.batch_size * xm.xrt_world_size())
   lr_scheduler = schedulers.wrap_optimizer_with_scheduler(
