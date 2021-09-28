@@ -161,9 +161,12 @@ class Adam(Optimizer):
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
             step = state_steps[i]
-            # max_exp_avg_sq = max_exp_avg_sqs[i] 
+            if amsgrad:
+                max_exp_avg_sq = max_exp_avg_sqs[i] 
+            else:
+                max_exp_avg_sq = torch.zeros_like(exp_avg_sq)
             torch_xla._XLAC._xla_adam_optimizer_step(found_inf, step, param, grad,
-                                                    exp_avg, exp_avg_sq, max_exp_avg_sqs, 
+                                                    exp_avg, exp_avg_sq, max_exp_avg_sq, 
                                                     amsgrad, beta1, beta2, lr, weight_decay, eps)
 
     def adam_step_py(self, params: List[Tensor], grads: List[Tensor],
@@ -173,7 +176,6 @@ class Adam(Optimizer):
                     weight_decay: float, eps: float, found_inf: Tensor):
 
         for i, param in enumerate(params):
-            import pdb;pdb.set_trace()
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
