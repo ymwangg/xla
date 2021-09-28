@@ -93,8 +93,8 @@ class Adam(Optimizer):
                     # Lazy state initialization
 
                     if len(state) == 0:
-                        # state['step'] = torch.zeros_like(found_inf) # Changed 
-                        state['step'] = 0
+                        state['step'] = torch.zeros_like(found_inf) # Changed 
+                        # state['step'] = 0
                         # Exponential moving average of gradient values
                         state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                         # Exponential moving average of squared gradient values
@@ -110,8 +110,8 @@ class Adam(Optimizer):
                         max_exp_avg_sqs.append(state['max_exp_avg_sq'])
 
                     # update the steps for each param group update
-                    if not found_inf:
-                        state['step'] += 1
+                    # if not found_inf:
+                    #     state['step'] += 1
                     # record the step after step update
                     state_steps.append(state['step'])
 
@@ -148,7 +148,7 @@ class Adam(Optimizer):
 
     def adam_step_cpp(self, params: List[Tensor], grads: List[Tensor],
                     exp_avgs: List[Tensor], exp_avg_sqs: List[Tensor], 
-                    max_exp_avg_sqs: List[Tensor], state_steps: List[int],
+                    max_exp_avg_sqs: List[Tensor], state_steps: List[Tensor],
                     amsgrad: bool, beta1: float, beta2: float, lr: float, 
                     weight_decay: float, eps: float, found_inf: Tensor):
         r"""Functional API that performs SGD algorithm computation.
@@ -176,13 +176,17 @@ class Adam(Optimizer):
                     weight_decay: float, eps: float, found_inf: Tensor):
 
         for i, param in enumerate(params):
+            import pdb;pdb.set_trace()
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
             step = state_steps[i]
 
-            bias_correction1 = 1 - beta1 ** step
-            bias_correction2 = 1 - beta2 ** step
+            if not found_inf:
+                step.add_(1.0)
+
+            bias_correction1 = 1 - beta1 ** (step.item())
+            bias_correction2 = 1 - beta2 ** (step.item())
 
             if weight_decay != 0:
                 grad = torch.where(found_inf.to(torch.bool), grad, grad.add(param, alpha=weight_decay))
