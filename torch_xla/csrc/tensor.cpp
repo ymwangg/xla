@@ -1518,6 +1518,7 @@ XLATensor::CompilationResult XLATensor::Compile(
     const std::vector<XLATensor>& tensors,
     absl::Span<const std::string> devices, const SyncTensorCollection& coll,
     PostOrderData* po_data) {
+  auto t1 = std::chrono::high_resolution_clock::now();
   tensorflow::profiler::TraceMe activity(
       [&] {
         return tensorflow::profiler::TraceMeEncode(
@@ -1590,7 +1591,10 @@ XLATensor::CompilationResult XLATensor::Compile(
              computations.front()->computation().proto().SerializeAsString()));
   XLA_CHECK_EQ(program_shape.parameters_size(),
                po_data->parameters_data.size());
-
+  auto t2 = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+  double dt = duration.count() / 1e6;
+  std::cout << "Compilation time = " << dt << std::endl;
   return {/*device=*/coll.device,
           /*emitted_nodes=*/lowering_ctx.GetEmittedNodeCount(),
           /*computation=*/std::move(computations.front()),

@@ -1,0 +1,6 @@
+USE_FP32=0 XLA_SAVE_TENSORS_FMT=hlo XLA_SAVE_TENSORS_FILE=/tmp/debug.hlo GPU_NUM_DEVICES=1 python debug.py --amp
+USE_FP32=0 XLA_SAVE_TENSORS_FMT=text XLA_SAVE_TENSORS_FILE=/tmp/debug.ir GPU_NUM_DEVICES=1 python debug.py --amp
+export TF_CPP_MIN_LOG_LEVEL=0
+export TF_CPP_VMODULE=hlo_pass_pipeline=1
+export XLA_FLAGS="--xla_dump_to=/tmp/hlo_graph --xla_dump_hlo_as_text \
+--xla_dump_hlo_pass_re=.*"

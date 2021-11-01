@@ -68,10 +68,9 @@ void CheckSubOperandTypes(at::ScalarType type1, at::ScalarType type2) {
 
 c10::optional<at::ScalarType> PromoteIntegralType(
     at::ScalarType src_dtype, const c10::optional<at::ScalarType>& opt_dtype) {
-  return opt_dtype.has_value()
-             ? opt_dtype.value()
-             : at::isIntegralType(src_dtype, /*includeBool=*/true) ? at::kLong
-                                                                   : opt_dtype;
+  return opt_dtype.has_value() ? opt_dtype.value()
+         : at::isIntegralType(src_dtype, /*includeBool=*/true) ? at::kLong
+                                                               : opt_dtype;
 }
 
 bool IsTypeWithLargerRangeThanLong(torch::ScalarType dtype) {
@@ -1244,7 +1243,30 @@ at::Tensor XLANativeFunctions::div(
     c10::optional<c10::string_view> rounding_mode) {
   XLA_FN_COUNTER("xla::");
   at::ScalarType dtype = at::result_type(self, other);
-  auto operands = GetBinaryOperands(self, other);
+  at::Tensor new_self = self;
+  at::Tensor new_other = other;
+  bool use_fp32 = xla::sys_util::GetEnvBool("USE_FP32", false);
+  if (use_fp32 && other.scalar_type() == at::ScalarType::Double) {
+    bool half = xla::sys_util::GetEnvBool("HALF", false);
+    if ((half && self.scalar_type() == at::ScalarType::Half) ||
+        (!half && self.scalar_type() != at::ScalarType::Half)) {
+      std::cout << self.type() << " " << other.type() << " " << dtype
+                << std::endl;
+      std::cout << other << std::endl;
+      new_other = other.to(at::ScalarType::Float);
+    }
+  }
+  bool use_fp64 = xla::sys_util::GetEnvBool("USE_FP64", false);
+  if (use_fp64) {
+    new_self = self.to(at::ScalarType::Double);
+    new_other = other.to(at::ScalarType::Double);
+  }
+  bool use_fp16 = xla::sys_util::GetEnvBool("USE_FP16", false);
+  if (use_fp16) {
+    new_self = self.to(at::ScalarType::Half);
+    new_other = other.to(at::ScalarType::Half);
+  }
+  auto operands = GetBinaryOperands(new_self, new_other);
   return bridge::AtenFromXlaTensor(
       XLATensor::div(operands.first, operands.second, rounding_mode, dtype));
 }
