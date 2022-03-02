@@ -47,6 +47,7 @@
 #include "torch_xla/csrc/torch_util.h"
 #include "torch_xla/csrc/version.h"
 #include "torch_xla/csrc/xla_op_builder.h"
+#include "torch_xla/csrc/ops/custom.h"
 
 namespace torch_xla {
 namespace {
@@ -1249,6 +1250,13 @@ void InitXlaModuleBindings(py::module m) {
                 found_inf_xla, step_xla, param_xla, grad_xla, exp_avg_xla,
                 exp_avg_sq_xla, max_exp_avg_sq_xla, beta1, beta2, lr,
                 weight_decay, eps, amsgrad, maximize, use_adamw);
+          }
+        });
+  m.def("_custom_op",
+        []() {
+          {
+            NoGilSection nogil;
+            test();
           }
         });
 
