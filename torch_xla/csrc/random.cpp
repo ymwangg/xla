@@ -110,11 +110,12 @@ xla::XlaOp RngUniform(xla::XlaOp seed, const xla::Shape& shape,
       return xla::ConvertElementType(rng, shape.element_type());
     }
     case xla::PrimitiveType::F32:
-    case xla::PrimitiveType::F64:
+    case xla::PrimitiveType::F64: {
       return xla::UniformFloatingPointDistribution(
                  rng_seed, initial_state, GetBitGenerator(), rng_minval,
                  rng_maxval, rng_shape)
           .value;
+    }
     case xla::PrimitiveType::C64:
     case xla::PrimitiveType::C128: {
       xla::XlaOp k_seed = XlaHelpers::ScalarValue<uint64_t>(

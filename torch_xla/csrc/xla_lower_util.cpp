@@ -469,7 +469,20 @@ xla::XlaOp BuildBernoulli(xla::XlaOp probability, xla::XlaOp seed,
       xla::Zero(probability.builder(), probability_shape.element_type());
   xla::XlaOp one =
       xla::One(probability.builder(), probability_shape.element_type());
-  xla::XlaOp noise = RngUniform(seed, probability_shape, zero, one);
+  bool use_custom_dropout =
+      xla::sys_util::GetEnvBool("XLA_CUSTOM_DROPOUT", false);
+  xla::XlaOp noise;
+  if (use_custom_dropout) {
+    std::string opaque;
+    probability_shape.ToProto().SerializeToString(&opaque);
+    noise = xla::CustomCall(
+        probability.builder(), "do_custom_rand", /*operands=*/{},
+        /*shape=*/probability_shape, opaque, false,
+        /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+        /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE);
+  } else {
+    noise = RngUniform(seed, probability_shape, zero, one);
+  }
   return xla::ConvertElementType(xla::Lt(noise, probability), type);
 }
 

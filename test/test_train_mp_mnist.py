@@ -36,6 +36,7 @@ class MNIST(nn.Module):
     self.bn2 = nn.BatchNorm2d(20)
     self.fc1 = nn.Linear(320, 50)
     self.fc2 = nn.Linear(50, 10)
+    self.dropout = nn.Dropout(p=0.2)
 
   def forward(self, x):
     x = F.relu(F.max_pool2d(self.conv1(x), 2))
@@ -45,6 +46,7 @@ class MNIST(nn.Module):
     x = torch.flatten(x, 1)
     x = F.relu(self.fc1(x))
     x = self.fc2(x)
+    x = self.dropout(x)
     return F.log_softmax(x, dim=1)
 
 
