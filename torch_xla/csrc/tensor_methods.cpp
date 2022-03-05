@@ -867,28 +867,58 @@ XLATensor XLATensor::baddbmm(const XLATensor& input, const XLATensor& batch1,
 }
 
 XLATensor XLATensor::bernoulli(const XLATensor& input, double probability) {
-  auto input_shape = input.shape();
-  return input.CreateFrom(ir::MakeNode<ir::ops::Bernoulli>(
-      GetIrValueForScalar(probability, input_shape, input.GetDevice()),
-      GetRngSeed(input.GetDevice()), input_shape.get()));
+  bool use_custom_dropout =
+      xla::sys_util::GetEnvBool("XLA_CUSTOM_DROPOUT", false);
+  if (use_custom_dropout) {
+    return input.CreateFrom(ir::MakeNode<ir::ops::CustomBernoulli>(
+        input.shape().get(), probability));
+  } else {
+    auto input_shape = input.shape();
+    return input.CreateFrom(ir::MakeNode<ir::ops::Bernoulli>(
+        GetIrValueForScalar(probability, input_shape, input.GetDevice()),
+        GetRngSeed(input.GetDevice()), input_shape.get()));
+  }
 }
 
 XLATensor XLATensor::bernoulli(const XLATensor& input) {
-  return input.CreateFrom(ir::MakeNode<ir::ops::Bernoulli>(
-      input.GetIrValue(), GetRngSeed(input.GetDevice()), input.shape().get()));
+  bool use_custom_dropout =
+      xla::sys_util::GetEnvBool("XLA_CUSTOM_DROPOUT", false);
+  if (use_custom_dropout) {
+    return input.CreateFrom(ir::MakeNode<ir::ops::CustomBernoulli>(
+        input.shape().get(), input.GetIrValue()));
+  } else {
+    return input.CreateFrom(ir::MakeNode<ir::ops::Bernoulli>(
+        input.GetIrValue(), GetRngSeed(input.GetDevice()),
+        input.shape().get()));
+  }
 }
 
 void XLATensor::bernoulli_(XLATensor& input, double probability) {
-  auto input_shape = input.shape();
-  input.SetInPlaceIrValue(ir::MakeNode<ir::ops::Bernoulli>(
-      GetIrValueForScalar(probability, input_shape, input.GetDevice()),
-      GetRngSeed(input.GetDevice()), input_shape.get()));
+  bool use_custom_dropout =
+      xla::sys_util::GetEnvBool("XLA_CUSTOM_DROPOUT", false);
+  if (use_custom_dropout) {
+    auto input_shape = input.shape();
+    input.SetInPlaceIrValue(ir::MakeNode<ir::ops::CustomBernoulli>(
+        input_shape.get(), GetIrValueForScalar(probability, input_shape, input.GetDevice())));
+  } else {
+    auto input_shape = input.shape();
+    input.SetInPlaceIrValue(ir::MakeNode<ir::ops::Bernoulli>(
+        GetIrValueForScalar(probability, input_shape, input.GetDevice()),
+        GetRngSeed(input.GetDevice()), input_shape.get()));
+  }
 }
 
 void XLATensor::bernoulli_(XLATensor& input, const XLATensor& probability) {
-  input.SetInPlaceIrValue(ir::MakeNode<ir::ops::Bernoulli>(
-      probability.GetIrValue(), GetRngSeed(input.GetDevice()),
-      input.shape().get()));
+  bool use_custom_dropout =
+      xla::sys_util::GetEnvBool("XLA_CUSTOM_DROPOUT", false);
+  if (use_custom_dropout) {
+    input.SetInPlaceIrValue(ir::MakeNode<ir::ops::CustomBernoulli>(
+        input.shape().get(), probability.GetIrValue()));
+  } else {
+    input.SetInPlaceIrValue(ir::MakeNode<ir::ops::Bernoulli>(
+        probability.GetIrValue(), GetRngSeed(input.GetDevice()),
+        input.shape().get()));
+  }
 }
 
 XLATensor XLATensor::binary_cross_entropy(const XLATensor& input,

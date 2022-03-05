@@ -1,6 +1,10 @@
 #include <cuda.h>
+#include <cuda_fp16.h>
 #include <curand.h>
+#include <curand_kernel.h>
 #include <stdio.h>
+#include <thrust/device_ptr.h>
+#include <thrust/transform.h>
 
 #include <iostream>
 
@@ -87,8 +91,8 @@ XLA_REGISTER_CUSTOM_CALL_TARGET(do_custom_call, "CUDA");
 static curandGenerator_t gen;
 static std::once_flag cuda_rng;
 
-void do_custom_rand(CUstream stream, void** buffers, const char* opaque,
-                    size_t opaque_len) {
+void xla_custom_rand_float(CUstream stream, void** buffers, const char* opaque,
+                           size_t opaque_len) {
   // auto start = std::chrono::steady_clock::now();
   float* output = reinterpret_cast<float*>(buffers[0]);
   xla::ShapeProto shape;
@@ -111,7 +115,7 @@ void do_custom_rand(CUstream stream, void** buffers, const char* opaque,
   //                  .count()
   //           << " us" << std::endl;
 }
-XLA_REGISTER_CUSTOM_CALL_TARGET(do_custom_rand, "CUDA");
+XLA_REGISTER_CUSTOM_CALL_TARGET(xla_custom_rand_float, "CUDA");
 
 __global__ void set_value(float* output, const int64_t len) {
   for (size_t thread_id = threadIdx.x; thread_id < len;
@@ -154,3 +158,109 @@ void do_custom_rand2(CUstream stream, void** buffers, const char* opaque,
   printf("\n");
 }
 XLA_REGISTER_CUSTOM_CALL_TARGET(do_custom_rand2, "CUDA");
+
+static curandState* states;
+
+__global__ void setup_kernel(curandState* states) {
+  int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  curand_init(1234, idx, 0, &states[idx]);
+}
+
+__global__ void generate_uniform(__half* output, curandState* states,
+                                 int64_t len, int64_t num_per_thread) {
+  int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  for (size_t i = 0; i < num_per_thread; i++) {
+    int64_t out_idx = idx * num_per_thread + i;
+    if (out_idx < len) {
+      output[out_idx] = __float2half(curand_uniform(&states[idx]));
+    }
+  }
+}
+
+void xla_custom_rand_half(CUstream stream, void** buffers, const char* opaque,
+                          size_t opaque_len) {
+  auto start = std::chrono::steady_clock::now();
+  __half* output = reinterpret_cast<__half*>(buffers[0]);
+  xla::ShapeProto shape;
+  shape.ParseFromArray(opaque, opaque_len);
+  int64_t len = 1;
+  for (size_t i = 0; i < shape.dimensions().size(); i++) {
+    len *= shape.dimensions(i);
+  }
+  std::cout << "len=" << len << std::endl;
+  int64_t N = 512;
+  std::call_once(cuda_rng, [&]() {
+    cudaMalloc((void**)&states, N * sizeof(curandState_t));
+    setup_kernel<<<1, N, 0, stream>>>(states);
+  });
+  int64_t num_per_thread = (len + N - 1) / N;
+  generate_uniform<<<1, N, 0, stream>>>(output, states, len, num_per_thread);
+  auto end = std::chrono::steady_clock::now();
+  std::cout << "dt="
+            << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                     start)
+                   .count()
+            << " us" << std::endl;
+}
+XLA_REGISTER_CUSTOM_CALL_TARGET(xla_custom_rand_half, "CUDA");
+
+struct bernoulli {
+  __host__ __device__ float operator()(const float& probability,
+                                       const float& value) const {
+    return value < probability ? 1.0f : 0.0f;
+  }
+};
+
+void xla_custom_bernoulli(CUstream stream, void** buffers, const char* opaque,
+                          size_t opaque_len) {
+  const float* probability = reinterpret_cast<const float*>(buffers[0]);
+  float* output = reinterpret_cast<float*>(buffers[1]);
+  xla::ShapeProto shape;
+  shape.ParseFromArray(opaque, opaque_len);
+  int64_t len = 1;
+  for (size_t i = 0; i < shape.dimensions().size(); i++) {
+    len *= shape.dimensions(i);
+  }
+  std::call_once(cuda_rng, []() {
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    curandSetPseudoRandomGeneratorSeed(gen, 1234ULL);
+  });
+  curandSetStream(gen, stream);
+  curandGenerateUniform(gen, output, len);
+  thrust::device_ptr<const float> p = thrust::device_pointer_cast(probability);
+  thrust::device_ptr<float> o = thrust::device_pointer_cast(output);
+  thrust::transform(thrust::cuda::par.on(stream), p, p + len, o, o,
+                    bernoulli());
+}
+XLA_REGISTER_CUSTOM_CALL_TARGET(xla_custom_bernoulli, "CUDA");
+
+struct bernoulli_fast {
+  const float probability_;
+  bernoulli_fast(float probability) : probability_(probability) {}
+  __host__ __device__ float operator()(float& value) const {
+    return value < probability_ ? 0.0f : 1.0f;
+  }
+};
+
+void xla_custom_bernoulli_fast(CUstream stream, void** buffers,
+                               const char* opaque, size_t opaque_len) {
+  std::cout << "fast bernoulli" << std::endl;
+  float* output = reinterpret_cast<float*>(buffers[0]);
+  xla::ShapeProto shape;
+  shape.ParseFromArray(opaque, opaque_len);
+  int64_t len = 1;
+  for (size_t i = 0; i < shape.dimensions().size(); i++) {
+    len *= shape.dimensions(i);
+  }
+  std::cout << "len=" << len << std::endl;
+  std::call_once(cuda_rng, []() {
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    curandSetPseudoRandomGeneratorSeed(gen, 1234ULL);
+  });
+  curandSetStream(gen, stream);
+  curandGenerateUniform(gen, output, len);
+  std::cout << "done rng" << std::endl;
+  thrust::device_ptr<float> o = thrust::device_pointer_cast(output);
+  thrust::transform(thrust::cuda::par.on(stream), o, o + len, o, bernoulli_fast(0.1));
+}
+XLA_REGISTER_CUSTOM_CALL_TARGET(xla_custom_bernoulli_fast, "CUDA");
