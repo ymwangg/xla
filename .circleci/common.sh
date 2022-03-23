@@ -148,6 +148,11 @@ function run_torch_xla_tests() {
     if ! [ -x "$(command -v nvidia-smi)"  ]
     then
       ./run_tests.sh -X early_sync -F AtenXlaTensorTest.TestEarlySyncLiveTensors -L""
+
+      # Test Custom Curand Operators
+      export XLA_USE_CURAND=1
+      ./run_tests.sh -F AtenXlaTensorTest.TestUniformInPlace:AtenXlaTensorTest.TestBernoulli*AtenXlaTensorTest.TestDropout* -L""
+      unset XLA_USE_CURAND
     fi
     popd
   popd

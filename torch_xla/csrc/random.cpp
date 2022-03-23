@@ -100,16 +100,53 @@ xla::XlaOp RngUniform(xla::XlaOp seed, const xla::Shape& shape,
   xla::XlaOp rng_maxval = MakeUniformBoundaryValue(maxval);
   xla::XlaOp initial_state =
       xla::Zero(rng_seed.builder(), xla::PrimitiveType::U64);
+  bool test_rng = xla::sys_util::GetEnvBool("XLA_USE_CURAND", false);
   switch (shape.element_type()) {
-    case xla::PrimitiveType::F16:
     case xla::PrimitiveType::BF16: {
       xla::XlaOp rng = xla::UniformFloatingPointDistribution(
                            rng_seed, initial_state, GetBitGenerator(),
                            rng_minval, rng_maxval, rng_shape)
                            .value;
-      return xla::ConvertElementType(rng, shape.element_type());
+      return xla::ConvertElementType((maxval - minval) * rng + minval,
+                                     shape.element_type());
     }
-    case xla::PrimitiveType::F32:
+    case xla::PrimitiveType::F16: {
+      if (test_rng) {
+        std::string opaque;
+        rng_shape.ToProto().SerializeToString(&opaque);
+        xla::XlaOp rng = xla::CustomCall(
+            rng_seed.builder(), "cuda_curand_uniform_f32", /*operands=*/{},
+            /*shape=*/rng_shape, opaque, false,
+            /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+            /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+        return xla::ConvertElementType(rng, shape.element_type());
+      } else {
+        xla::XlaOp rng = xla::UniformFloatingPointDistribution(
+                             rng_seed, initial_state, GetBitGenerator(),
+                             rng_minval, rng_maxval, rng_shape)
+                             .value;
+        return xla::ConvertElementType(rng, shape.element_type());
+      }
+    }
+    case xla::PrimitiveType::F32: {
+      if (test_rng) {
+        std::string opaque;
+        rng_shape.ToProto().SerializeToString(&opaque);
+        xla::XlaOp rng = xla::CustomCall(
+            rng_seed.builder(), "cuda_curand_uniform_f32", /*operands=*/{},
+            /*shape=*/rng_shape, opaque, false,
+            /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+            /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+        return rng;
+      } else {
+        return xla::UniformFloatingPointDistribution(
+                   rng_seed, initial_state, GetBitGenerator(), rng_minval,
+                   rng_maxval, rng_shape)
+            .value;
+      }
+    }
     case xla::PrimitiveType::F64:
       return xla::UniformFloatingPointDistribution(
                  rng_seed, initial_state, GetBitGenerator(), rng_minval,
