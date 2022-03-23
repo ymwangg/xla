@@ -243,4 +243,11 @@ torch::lazy::NodePtr Softplus(const torch::lazy::Value& input,
 
 torch::lazy::NodePtr Selu(const torch::lazy::Value& input);
 
+torch::lazy::NodePtr DropoutBackward(const torch::lazy::Value& input,
+                                     const torch::lazy::Value& mask,
+                                     const torch::lazy::Value& scale);
+
+torch::lazy::NodePtr Dropout(const torch::lazy::Value& input,
+                             const torch::lazy::Value& probability);
+
 }  // namespace torch_xla

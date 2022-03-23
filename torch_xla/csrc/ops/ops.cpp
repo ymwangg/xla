@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "tensorflow/compiler/xla/client/lib/constants.h"
 #include "tensorflow/compiler/xla/client/lib/logdet.h"
 #include "tensorflow/compiler/xla/client/lib/math.h"
 #include "tensorflow/compiler/xla/client/lib/matrix.h"
@@ -269,6 +270,12 @@ torch::lazy::NodePtr Dot(const torch::lazy::Value& input,
                      LoweringContext* loctx) -> XlaOpVector {
     xla::XlaOp xla_input = loctx->GetOutputOp(node.operand(0));
     xla::XlaOp xla_weight = loctx->GetOutputOp(node.operand(1));
+    static bool opt = xla::sys_util::GetEnvBool("XLA_OPT", false);
+    if (opt) {
+      std::cout << "opt barrier" << std::endl;
+      return node.ReturnOp(
+          xla::OptimizationBarrier(BuildDot(xla_input, xla_weight)), loctx);
+    }
     return node.ReturnOp(BuildDot(xla_input, xla_weight), loctx);
   };
   auto lower_for_shape_fn =
@@ -291,7 +298,12 @@ torch::lazy::NodePtr MatMul(const torch::lazy::Value& lhs,
     xla::XlaOp xla_lhs = loctx->GetOutputOp(node.operand(0));
     xla::XlaOp xla_rhs = loctx->GetOutputOp(node.operand(1));
     std::tie(xla_lhs, xla_rhs) = XlaHelpers::PromoteValues(xla_lhs, xla_rhs);
-
+    static bool opt = xla::sys_util::GetEnvBool("XLA_OPT", false);
+    if (opt) {
+      std::cout << "opt barrier" << std::endl;
+      return node.ReturnOp(
+          xla::OptimizationBarrier(CreateMatMul(xla_lhs, xla_rhs)), loctx);
+    }
     return node.ReturnOp(CreateMatMul(xla_lhs, xla_rhs), loctx);
   };
   auto lower_for_shape_fn =
@@ -863,6 +875,73 @@ torch::lazy::NodePtr Selu(const torch::lazy::Value& input) {
     return node.ReturnOp(BuildSelu(xla_input), loctx);
   };
   return GenericOp(torch::lazy::OpKind(at::aten::selu), {input},
+                   GetXlaShape(input), std::move(lower_fn));
+}
+
+torch::lazy::NodePtr Dropout(const torch::lazy::Value& input,
+                             const torch::lazy::Value& probability) {
+  auto lower_fn = [](const XlaNode& node, LoweringContext* loctx) -> XlaOpVector {
+    xla::XlaOp input = loctx->GetOutputOp(node.operand(0));
+    xla::PrimitiveType type = XlaHelpers::ShapeOfXlaOp(input).element_type();
+    input = xla::ConvertElementType(input, xla::PrimitiveType::F16);
+    xla::Shape input_shape = XlaHelpers::ShapeOfXlaOp(input);
+    xla::Shape out_shape = xla::ShapeUtil::MakeTupleShape({
+        input_shape,
+        xla::ShapeUtil::MakeShape(xla::PrimitiveType::U8,
+                                  input_shape.dimensions()),
+    });
+    std::string shape_proto;
+    input_shape.ToProto().SerializeToString(&shape_proto);
+    // absl::Span<
+    //     const std::pair<xla::ShapeIndex, std::pair<int64_t,
+    //     xla::ShapeIndex>>> alias({std::pair<xla::ShapeIndex,
+    //     std::pair<int64_t, xla::ShapeIndex>>{
+    //       xla::ShapeIndex{0}, std::pair<int64_t, xla::ShapeIndex>(0, {0})}});
+    // std::cout << "build" << std::endl;
+    xla::XlaOp outputs = xla::CustomCall(
+        loctx->builder(), "XlaCustomDropoutCuda", /*operands=*/{input},
+        /*shape=*/out_shape, shape_proto, /*has_side_effect=*/true,
+        /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+        /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+        /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+    // std::cout << "done" << std::endl;
+    std::vector<xla::XlaOp> ops = {
+        xla::ConvertElementType(xla::GetTupleElement(outputs, 0), type),
+        xla::GetTupleElement(outputs, 1)};
+    // std::vector<xla::XlaOp> ops = {xla::GetTupleElement(outputs, 0),
+    //                                xla::GetTupleElement(outputs, 1)};
+    return node.ReturnOps(ops, loctx);
+  };
+  auto lower_for_shape_fn =
+      [](absl::Span<const xla::XlaOp> operands) -> xla::XlaOp {
+    xla::XlaOp ones =
+        xla::ConvertElementType(operands[0], xla::PrimitiveType::U8);
+    return xla::Tuple(operands[0].builder(), {operands[0], ones});
+  };
+  return GenericOp(xla_dropout, {input},
+                   [&]() {
+                     return InferOutputShape({GetXlaShape(input)},
+                                             lower_for_shape_fn);
+                   },
+                   std::move(lower_fn), /*num_outputs=*/2);
+}
+
+torch::lazy::NodePtr DropoutBackward(const torch::lazy::Value& input,
+                                     const torch::lazy::Value& mask,
+                                     const torch::lazy::Value& scale) {
+  auto lower_fn = [](const XlaNode& node, LoweringContext* loctx) -> XlaOpVector {
+    xla::XlaOp xla_input = loctx->GetOutputOp(node.operand(0));
+    xla::XlaOp mask = loctx->GetOutputOp(node.operand(1));
+    xla::XlaOp scale = loctx->GetOutputOp(node.operand(2));
+    xla::XlaOp xla_output =
+        xla_input *
+        xla::ConvertElementType(
+            mask, XlaHelpers::ShapeOfXlaOp(xla_input).element_type()) *
+        scale;
+    return node.ReturnOp(xla_output, loctx);
+  };
+
+  return GenericOp(xla_dropout_backward, {input, mask, scale},
                    GetXlaShape(input), std::move(lower_fn));
 }
 

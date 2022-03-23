@@ -3368,4 +3368,18 @@ at::Tensor XLANativeFunctions::slice_backward(const at::Tensor& grad_output,
                                     step);
 }
 
+std::tuple<at::Tensor, at::Tensor> XLANativeFunctions::native_dropout(
+    const at::Tensor& input, double p, c10::optional<bool> train) {
+  std::tuple<XLATensorPtr, XLATensorPtr> res =
+      XLATensor::dropout(bridge::GetXlaTensor(input), p);
+  return std::make_tuple(bridge::AtenFromXlaTensor(std::get<0>(res)),
+                         bridge::AtenFromXlaTensor(std::get<1>(res)));
+}
+
+at::Tensor XLANativeFunctions::native_dropout_backward(
+    const at::Tensor& grad_output, const at::Tensor& mask, double scale) {
+  return bridge::AtenFromXlaTensor(XLATensor::dropout_backward(
+      bridge::GetXlaTensor(grad_output), bridge::GetXlaTensor(mask), scale));
+}
+
 }  // namespace torch_xla

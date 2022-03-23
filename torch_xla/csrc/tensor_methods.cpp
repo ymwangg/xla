@@ -2837,4 +2837,24 @@ XLATensorPtr XLATensor::DispatchComparisonOp(c10::Symbol kind,
   return Create(node, input->GetDevice(), at::ScalarType::Bool);
 }
 
+XLATensorPtr XLATensor::dropout_backward(const XLATensorPtr& input,
+                                         const XLATensorPtr& mask, double p) {
+  return input->CreateFrom(DropoutBackward(
+      input->GetIrValue(), mask->GetIrValue(),
+      GetIrValueForScalar(p, input->shape().get().element_type(),
+                          input->GetDevice())));
+}
+
+std::tuple<XLATensorPtr, XLATensorPtr> XLATensor::dropout(
+    const XLATensorPtr& input, double p) {
+  torch::lazy::NodePtr node = Dropout(
+      input->GetIrValue(),
+      GetIrValueForScalar(p, input->shape().get().element_type(),
+                          input->GetDevice()));
+  XLATensorPtr out = input->CreateFrom(torch::lazy::Value(node, 0));
+  XLATensorPtr mask = input->CreateFrom(torch::lazy::Value(node, 1));
+
+  return std::make_tuple(std::move(out), std::move(mask));
+}
+
 }  // namespace torch_xla

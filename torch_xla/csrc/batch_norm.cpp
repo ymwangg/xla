@@ -3,6 +3,7 @@
 #include "tensorflow/compiler/xla/client/lib/constants.h"
 #include "tensorflow/compiler/xla/client/xla_builder.h"
 #include "torch_xla/csrc/helpers.h"
+#include "tensorflow/compiler/xla/xla_client/sys_util.h"
 
 namespace torch_xla {
 namespace {
@@ -52,6 +53,14 @@ BatchNormOutput BuildBatchNormTraining(xla::XlaOp input, xla::XlaOp weight,
   if (is_batchnorm_with_fp16_inputs) {
     output = xla::ConvertElementType(output, xla::PrimitiveType::F16);
   }
+  static bool opt = xla::sys_util::GetEnvBool("XLA_OPT1", false);
+  if (opt) {
+    std::cout << "opt barrier" << std::endl;
+    output = xla::OptimizationBarrier(output);
+    batch_mean = xla::OptimizationBarrier(batch_mean);
+    batch_variance = xla::OptimizationBarrier(batch_variance);
+    return {output, batch_mean, batch_variance};
+  }
   return {output, batch_mean, batch_variance};
 }
 
@@ -92,6 +101,14 @@ BatchNormGrads BuildBatchNormBackward(xla::XlaOp grad, xla::XlaOp input,
   xla::XlaOp grad_bias = xla::GetTupleElement(grads, 2);
   if (is_batchnorm_with_fp16_inputs) {
     grad_input = xla::ConvertElementType(grad_input, xla::PrimitiveType::F16);
+  }
+  static bool opt = xla::sys_util::GetEnvBool("XLA_OPT1", false);
+  if (opt) {
+    std::cout << "opt barrier" << std::endl;
+    grad_input = xla::OptimizationBarrier(grad_input);
+    grad_weight = xla::OptimizationBarrier(grad_weight);
+    grad_bias = xla::OptimizationBarrier(grad_bias);
+    return {grad_input, grad_weight, grad_bias};
   }
   return {grad_input, grad_weight, grad_bias};
 }
