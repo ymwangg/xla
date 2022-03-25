@@ -45,6 +45,10 @@
 #include "torch_xla/csrc/tensor_util.h"
 #include "torch_xla/csrc/torch_util.h"
 
+#if XLA_CUDA
+#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/curand_uniform.h"
+#endif
+
 namespace torch_xla {
 namespace {
 
@@ -349,6 +353,13 @@ class XLATensor::DeviceContextArena {
     devctx->seed = seed;
     devctx->running_seed = devctx->seed;
     devctx->seed_ir_value = ir::Value();
+#if XLA_CUDA
+    // Optionally use curand library
+    static bool use_curand = xla::sys_util::GetEnvBool("XLA_USE_CURAND", false);
+    if (use_curand) {
+      xla_custom_cuda_ops::CurandGeneratorClient::Get()->SetRngSeed(seed);
+    }
+#endif
   }
 
   void MarkStep(const Device& device) {

@@ -1,4 +1,4 @@
-#include "cuda_utils.h"
+#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/cuda_utils.h"
 
 namespace xla_custom_cuda_ops {
 

@@ -1,13 +1,13 @@
 #ifndef XLA_CUSTOM_CUDA_UTILS_
 #define XLA_CUSTOM_CUDA_UTILS_
 
+#include <cuda.h>
+#include <curand.h>
+
 #include "absl/base/casts.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "third_party/gpus/cuda/include/cuda.h"
-#include "third_party/gpus/cuda/include/cuda_runtime_api.h"
-#include "third_party/gpus/cuda/include/curand.h"
 
 #define CUDA_AS_STATUS(expr) \
   xla_custom_cuda_ops::AsStatus(expr, __FILE__, __LINE__, #expr)

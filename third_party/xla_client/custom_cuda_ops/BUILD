@@ -1,9 +1,7 @@
 licenses(["notice"])  # Apache 2.0
 
-package(default_visibility = ["//tensorflow:internal"])
-
 cc_library(
-    name = "cuda_ops",
+    name = "curand_ops",
     srcs = [
         "cuda_utils.cc",
         "curand_uniform.cc",
@@ -14,13 +12,11 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//tensorflow/compiler/xla:xla_proto_cc",
+        "//tensorflow/compiler/xla:shape_util",
         "//tensorflow/compiler/xla/service:custom_call_status",
         "//tensorflow/compiler/xla/service:custom_call_target_registry",
+        "//tensorflow/stream_executor/cuda:curand_lib",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-        "@org_tensorflow//tensorflow/stream_executor/cuda:curand_lib",
     ],
 )

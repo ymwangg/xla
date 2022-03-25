@@ -1,7 +1,7 @@
 #ifndef XLA_CUSTOM_CURAND_UNIFORM_
 #define XLA_CUSTOM_CURAND_UNIFORM_
 
-#include "cuda_utils.h"
+#include <curand.h>
 
 namespace xla_custom_cuda_ops {
 
@@ -10,7 +10,7 @@ class CurandGeneratorClient {
  public:
   static CurandGeneratorClient* Get();
   curandGenerator_t& GetCurandGenerator();
-  void SetRandomSeed(unsigned long long seed);
+  void SetRngSeed(unsigned long long seed);
 
  private:
   curandGenerator_t generator;
