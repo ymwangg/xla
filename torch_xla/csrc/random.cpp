@@ -118,7 +118,7 @@ xla::XlaOp RngUniform(xla::XlaOp seed, const xla::Shape& shape,
             xla::CustomCall(rng_seed.builder(), func_name, /*operands=*/{},
                             /*shape=*/rng_shape, rng_shape_proto, false,
                             /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
-                            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+                            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_LATEST,
                             /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
         rng = xla::ConvertElementType(rng, shape.element_type());
         return (maxval - minval) * rng + minval;

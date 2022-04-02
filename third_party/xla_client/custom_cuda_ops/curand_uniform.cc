@@ -1,5 +1,7 @@
 #include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/curand_uniform.h"
 
+#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/bernoulli.h"
+
 #include "tensorflow/compiler/xla/primitive_util.h"
 #include "tensorflow/compiler/xla/service/custom_call_status.h"
 #include "tensorflow/compiler/xla/service/custom_call_target_registry.h"
@@ -70,5 +72,38 @@ void curand_uniform(CUstream stream, void** buffers, const char* opaque,
 
 XLA_REGISTER_CUSTOM_CALL_TARGET_WITH_SYM("custom_curand_uniform",
                                          curand_uniform, "CUDA");
+
+
+absl::Status custom_cuda_bernoulli_(CUstream stream, void** buffers,
+                                    const char* opaque, size_t opaque_len) {
+  const float* probability = reinterpret_cast<const float*>(buffers[0]);
+  float* output = reinterpret_cast<float*>(buffers[1]);
+  xla::ShapeProto shape;
+  if (!shape.ParseFromArray(opaque, opaque_len)) {
+    return absl::InternalError("Failed parsing the shape proto");
+  }
+  int64_t num_elements = 1;
+  for (auto dim : shape.dimensions()) {
+    num_elements *= dim;
+  }
+  curandGenerator_t& generator =
+      CurandGeneratorClient::Get()->GetCurandGenerator();
+  CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(curandSetStream(generator, stream)));
+  CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(curandGenerateUniform(
+      generator, reinterpret_cast<float*>(output), num_elements)));
+  bernoulli_compare(stream, probability, output, num_elements);
+  return absl::OkStatus();
+}
+
+void custom_cuda_bernoulli(CUstream stream, void** buffers, const char* opaque,
+                           size_t opaque_len, XlaCustomCallStatus* status) {
+  auto result = custom_cuda_bernoulli_(stream, buffers, opaque, opaque_len);
+  if (!result.ok()) {
+    absl::string_view message = result.message();
+    XlaCustomCallStatusSetFailure(status, message.data(), message.length());
+  }
+}
+XLA_REGISTER_CUSTOM_CALL_TARGET_WITH_SYM("custom_cuda_bernoulli",
+                                         custom_cuda_bernoulli, "CUDA");
 
 }  // namespace xla_custom_cuda_ops

@@ -15,6 +15,15 @@ class Bernoulli : public Node {
   XlaOpVector Lower(LoweringContext* loctx) const override;
 };
 
+class BernoulliCuda : public Node {
+ public:
+  BernoulliCuda(const Value& probability, xla::Shape shape);
+
+  NodePtr Clone(OpList operands) const override;
+
+  XlaOpVector Lower(LoweringContext* loctx) const override;
+};
+
 }  // namespace ops
 }  // namespace ir
 }  // namespace torch_xla
