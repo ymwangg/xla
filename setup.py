@@ -318,7 +318,8 @@ else:
 if XLA_CUDA:
   extra_compile_args += ['-DXLA_CUDA']
   include_dirs += [
-      os.path.join(third_party_path, 'tensorflow/bazel-tensorflow/external/local_cuda/cuda/include')
+      # os.path.join(third_party_path, 'tensorflow/bazel-tensorflow/external/local_cuda/cuda/include')
+      os.path.join(third_party_path, 'tensorflow/bazel-bin/external/local_config_cuda/cuda/cuda/include')
   ]
 
 extra_link_args += ['-lxla_computation_client']

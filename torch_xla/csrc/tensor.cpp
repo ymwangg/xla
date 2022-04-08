@@ -46,7 +46,7 @@
 #include "torch_xla/csrc/torch_util.h"
 
 #if XLA_CUDA
-#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/curand_uniform.h"
+#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/bernoulli.h"
 #endif
 
 namespace torch_xla {
@@ -354,10 +354,11 @@ class XLATensor::DeviceContextArena {
     devctx->running_seed = devctx->seed;
     devctx->seed_ir_value = ir::Value();
 #if XLA_CUDA
-    // Optionally use curand library
-    static bool use_curand = xla::sys_util::GetEnvBool("XLA_USE_CURAND", false);
-    if (use_curand) {
-      xla_custom_cuda_ops::CurandGeneratorClient::Get()->SetRngSeed(seed);
+    // Optionally use curand library for bernoulli operator
+    static bool use_custom_bernoulli =
+        xla::sys_util::GetEnvBool("XLA_CUSTOM_BERNOULLI", false);
+    if (use_custom_bernoulli) {
+      xla_custom_cuda_ops::CurandContext::Get()->SetRngSeed(seed);
     }
 #endif
   }

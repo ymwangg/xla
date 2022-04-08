@@ -38,47 +38,41 @@ NodePtr BernoulliCuda::Clone(OpList operands) const {
   return MakeNode<BernoulliCuda>(operands.at(0), shape());
 }
 
-// XlaOpVector BernoulliCuda::Lower(LoweringContext* loctx) const {
-//   xla::XlaOp probability = loctx->GetOutputOp(operand(0));
-//   const xla::Shape& probability_shape = XlaHelpers::ShapeOfXlaOp(probability);
-//   xla::Shape rng_shape(shape());
-//   rng_shape.set_element_type(xla::PrimitiveType::F32);
-//   xla::XlaOp bcast_probability =
-//       XlaHelpers::ImplicitBroadcast(probability, probability_shape, rng_shape);
-
-//   std::string func_name = "custom_curand_uniform";
-//   std::string rng_shape_proto;
-//   rng_shape.ToProto().SerializeToString(&rng_shape_proto);
-//   // absl::Span<const std::pair<xla::ShapeIndex, std::pair<int64_t, xla::ShapeIndex>>> aliasing({{xla::ShapeIndex({}), {0, xla::ShapeIndex()}}});
-//   xla::XlaOp rng =
-//       xla::CustomCall(loctx->builder(), func_name, /*operands=*/{},
-//                       /*shape=*/rng_shape, rng_shape_proto, false,
-//                       /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
-//                       /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
-//                       /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
-//   rng = xla::ConvertElementType(rng, shape().element_type());
-//   xla::XlaOp res = xla::Lt(rng, probability);
-//   return ReturnOp(res, loctx);
-// }
-
 XlaOpVector BernoulliCuda::Lower(LoweringContext* loctx) const {
   xla::XlaOp probability = loctx->GetOutputOp(operand(0));
-  probability = xla::ConvertElementType(probability, xla::PrimitiveType::F32);
-  const xla::Shape& probability_shape = XlaHelpers::ShapeOfXlaOp(probability);
   xla::Shape rng_shape(shape());
-  rng_shape.set_element_type(xla::PrimitiveType::F32);
+
+  switch (shape().element_type()) {
+    case xla::PrimitiveType::F16:
+      // Convert F16 to F32
+      probability =
+          xla::ConvertElementType(probability, xla::PrimitiveType::F32);
+      rng_shape.set_element_type(xla::PrimitiveType::F32);
+    case xla::PrimitiveType::F32:
+    case xla::PrimitiveType::F64:
+      break;
+    default:
+      XLA_ERROR() << "Unsupported type: "
+                  << xla::primitive_util::LowercasePrimitiveTypeName(
+                         shape().element_type());
+  }
+
+  const xla::Shape& probability_shape = XlaHelpers::ShapeOfXlaOp(probability);
   xla::XlaOp bcast_probability =
       XlaHelpers::ImplicitBroadcast(probability, probability_shape, rng_shape);
 
-  std::string func_name = "custom_cuda_bernoulli";
   std::string rng_shape_proto;
   rng_shape.ToProto().SerializeToString(&rng_shape_proto);
-  xla::XlaOp res =
-      xla::CustomCall(loctx->builder(), func_name, /*operands=*/{probability},
-                      /*shape=*/rng_shape, rng_shape_proto, false,
-                      /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
-                      /*schedule=*/xla::CustomCallSchedule::SCHEDULE_LATEST,
-                      /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+
+  xla::XlaOp res = xla::CustomCall(
+      loctx->builder(), /*call_target_name=*/"XlaCustomBernoulliCuda",
+      /*operands=*/{bcast_probability},
+      /*shape=*/rng_shape, /*opaque=*/rng_shape_proto,
+      /*has_side_effect=*/true,
+      /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+      /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+      /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+
   return ReturnOp(xla::ConvertElementType(res, shape().element_type()), loctx);
 }
 

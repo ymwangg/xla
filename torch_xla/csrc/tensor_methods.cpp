@@ -869,39 +869,46 @@ XLATensor XLATensor::baddbmm(const XLATensor& input, const XLATensor& batch1,
       product_multiplier, bias_multiplier));
 }
 
+ir::Value BuildBernoulliNode(const ir::Value& probability, const Device& device,
+                             xla::Shape shape) {
+  switch (shape.element_type()) {
+    case xla::PrimitiveType::F16:
+    case xla::PrimitiveType::F32:
+    case xla::PrimitiveType::F64: {
+      static bool use_custom_bernoulli =
+          xla::sys_util::GetEnvBool("XLA_CUSTOM_BERNOULLI", false);
+      if (use_custom_bernoulli) {
+        return ir::MakeNode<ir::ops::BernoulliCuda>(probability, shape);
+      }
+    }
+    default:
+      return ir::MakeNode<ir::ops::Bernoulli>(
+          probability, XLATensor::GetRngSeed(device), shape);
+  }
+}
+
 XLATensor XLATensor::bernoulli(const XLATensor& input, double probability) {
-  std::cout << "bernoulli0" << std::endl;
   auto input_shape = input.shape();
-  return input.CreateFrom(ir::MakeNode<ir::ops::Bernoulli>(
+  return input.CreateFrom(BuildBernoulliNode(
       GetIrValueForScalar(probability, input_shape, input.GetDevice()),
-      GetRngSeed(input.GetDevice()), input_shape.get()));
+      input.GetDevice(), input_shape.get()));
 }
 
 XLATensor XLATensor::bernoulli(const XLATensor& input) {
-  std::cout << "bernoulli1" << std::endl;
-  return input.CreateFrom(ir::MakeNode<ir::ops::Bernoulli>(
-      input.GetIrValue(), GetRngSeed(input.GetDevice()), input.shape().get()));
+  return input.CreateFrom(BuildBernoulliNode(
+      input.GetIrValue(), input.GetDevice(), input.shape().get()));
 }
 
 void XLATensor::bernoulli_(XLATensor& input, double probability) {
   auto input_shape = input.shape();
-  static bool use_cuda = xla::sys_util::GetEnvBool("XLA_USE_CUDA", false);
-  if (use_cuda) {
-    input.SetInPlaceIrValue(ir::MakeNode<ir::ops::BernoulliCuda>(
-        GetIrValueForScalar(probability, input_shape, input.GetDevice()),
-        input_shape.get()));
-  } else {
-    input.SetInPlaceIrValue(ir::MakeNode<ir::ops::Bernoulli>(
-        GetIrValueForScalar(probability, input_shape, input.GetDevice()),
-        GetRngSeed(input.GetDevice()), input_shape.get()));
-  }
+  input.SetInPlaceIrValue(BuildBernoulliNode(
+      GetIrValueForScalar(probability, input_shape, input.GetDevice()),
+      input.GetDevice(), input_shape.get()));
 }
 
 void XLATensor::bernoulli_(XLATensor& input, const XLATensor& probability) {
-  std::cout << "bernoulli3" << std::endl;
-  input.SetInPlaceIrValue(ir::MakeNode<ir::ops::Bernoulli>(
-      probability.GetIrValue(), GetRngSeed(input.GetDevice()),
-      input.shape().get()));
+  input.SetInPlaceIrValue(BuildBernoulliNode(
+      probability.GetIrValue(), input.GetDevice(), input.shape().get()));
 }
 
 XLATensor XLATensor::binary_cross_entropy(const XLATensor& input,

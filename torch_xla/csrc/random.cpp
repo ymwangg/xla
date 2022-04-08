@@ -111,14 +111,13 @@ xla::XlaOp RngUniform(xla::XlaOp seed, const xla::Shape& shape,
       case xla::PrimitiveType::F16:
       case xla::PrimitiveType::F32:
       case xla::PrimitiveType::F64: {
-        std::string func_name = "custom_curand_uniform";
         std::string rng_shape_proto;
         rng_shape.ToProto().SerializeToString(&rng_shape_proto);
         xla::XlaOp rng =
-            xla::CustomCall(rng_seed.builder(), func_name, /*operands=*/{},
-                            /*shape=*/rng_shape, rng_shape_proto, false,
+            xla::CustomCall(rng_seed.builder(), "XlaCustomRngCuda", /*operands=*/{seed},
+                            /*shape=*/rng_shape, rng_shape_proto, true,
                             /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
-                            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_LATEST,
+                            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
                             /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
         rng = xla::ConvertElementType(rng, shape.element_type());
         return (maxval - minval) * rng + minval;
