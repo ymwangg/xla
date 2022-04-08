@@ -35,14 +35,14 @@ BernoulliCuda::BernoulliCuda(const Value& probability, xla::Shape shape)
            std::move(shape)) {}
 
 NodePtr BernoulliCuda::Clone(OpList operands) const {
-  return MakeNode<BernoulliCuda>(operands.at(0), shape());
+  return ir::MakeNode<BernoulliCuda>(operands.at(0), xla_shape());
 }
 
 XlaOpVector BernoulliCuda::Lower(LoweringContext* loctx) const {
   xla::XlaOp probability = loctx->GetOutputOp(operand(0));
-  xla::Shape rng_shape(shape());
+  xla::Shape rng_shape(xla_shape());
 
-  switch (shape().element_type()) {
+  switch (xla_shape().element_type()) {
     case xla::PrimitiveType::F16:
       // Convert F16 to F32
       probability =
@@ -54,7 +54,7 @@ XlaOpVector BernoulliCuda::Lower(LoweringContext* loctx) const {
     default:
       XLA_ERROR() << "Unsupported type: "
                   << xla::primitive_util::LowercasePrimitiveTypeName(
-                         shape().element_type());
+                         xla_shape().element_type());
   }
 
   const xla::Shape& probability_shape = XlaHelpers::ShapeOfXlaOp(probability);
@@ -73,7 +73,7 @@ XlaOpVector BernoulliCuda::Lower(LoweringContext* loctx) const {
       /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
       /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
 
-  return ReturnOp(xla::ConvertElementType(res, shape().element_type()), loctx);
+  return ReturnOp(xla::ConvertElementType(res, xla_shape().element_type()), loctx);
 }
 
 }  // namespace ops
