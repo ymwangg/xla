@@ -1202,6 +1202,8 @@ class XLATensor {
 
   static XLATensor where(const XLATensor& condition, const XLATensor& input,
                          const XLATensor& other);
+  static XLATensor dropout_backward(const XLATensor& input, const XLATensor& mask, double p);
+  static std::tuple<XLATensor, XLATensor> dropout(const XLATensor& input, double p);
 
  private:
   struct SyncTensorsConfig {

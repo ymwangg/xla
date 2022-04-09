@@ -271,6 +271,8 @@ torch::lazy::NodePtr Softplus(const Value& input, const Value& beta,
 
 torch::lazy::NodePtr OptimizationBarrier(const Value& input);
 
+NodePtr DropoutBackward(const Value& input, const Value& mask, double scale);
+NodePtr Dropout(const Value& input, double probability);
 }  // namespace ops
 }  // namespace ir
 }  // namespace torch_xla

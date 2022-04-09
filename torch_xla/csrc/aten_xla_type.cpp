@@ -72,10 +72,9 @@ void CheckSubOperandTypes(at::ScalarType type1, at::ScalarType type2) {
 
 c10::optional<at::ScalarType> PromoteIntegralType(
     at::ScalarType src_dtype, const c10::optional<at::ScalarType>& opt_dtype) {
-  return opt_dtype.has_value()
-             ? opt_dtype.value()
-             : at::isIntegralType(src_dtype, /*includeBool=*/true) ? at::kLong
-                                                                   : opt_dtype;
+  return opt_dtype.has_value() ? opt_dtype.value()
+         : at::isIntegralType(src_dtype, /*includeBool=*/true) ? at::kLong
+                                                               : opt_dtype;
 }
 
 bool IsTypeWithLargerRangeThanLong(torch::ScalarType dtype) {
@@ -3593,6 +3592,20 @@ at::Scalar XLANativeFunctions::_local_scalar_dense(const at::Tensor& self) {
   }
   return at::native::call_fallback_fn<&xla_cpu_fallback,
                                       ATEN_OP(_local_scalar_dense)>::call(self);
+}
+
+std::tuple<at::Tensor, at::Tensor> XLANativeFunctions::native_dropout(
+    const at::Tensor& input, double p, c10::optional<bool> train) {
+  std::tuple<XLATensor, XLATensor> res =
+      XLATensor::dropout(bridge::GetXlaTensor(input), p);
+  return std::make_tuple(bridge::AtenFromXlaTensor(std::get<0>(res)),
+                         bridge::AtenFromXlaTensor(std::get<1>(res)));
+}
+
+at::Tensor XLANativeFunctions::native_dropout_backward(
+    const at::Tensor& grad_output, const at::Tensor& mask, double scale) {
+  return bridge::AtenFromXlaTensor(XLATensor::dropout_backward(
+      bridge::GetXlaTensor(grad_output), bridge::GetXlaTensor(mask), scale));
 }
 
 }  // namespace torch_xla

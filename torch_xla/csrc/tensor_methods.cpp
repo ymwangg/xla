@@ -3015,4 +3015,17 @@ XLATensor XLATensor::DispatchComparisonOp(c10::Symbol kind,
   return Create(node, input.GetDevice(), at::ScalarType::Bool);
 }
 
+XLATensor XLATensor::dropout_backward(const XLATensor& input, const XLATensor& mask, double p) {
+  return input.CreateFrom(ir::ops::DropoutBackward(input.GetIrValue(), mask.GetIrValue(), p));
+}
+
+std::tuple<XLATensor, XLATensor> XLATensor::dropout(const XLATensor& input,
+                                                    double p) {
+  ir::NodePtr node = ir::ops::Dropout(input.GetIrValue(), p);
+  XLATensor out = input.CreateFrom(ir::Value(node, 0));
+  XLATensor mask = input.CreateFrom(ir::Value(node, 1));
+
+  return std::make_tuple(std::move(out), std::move(mask));
+}
+
 }  // namespace torch_xla

@@ -328,6 +328,8 @@ supported:
   - where.self
   - xlogy.Tensor
   - zero_
+  - native_dropout
+  - native_dropout_backward
 autograd:
   - max_pool2d
   - max_pool3d

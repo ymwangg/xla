@@ -29,6 +29,9 @@ const OpKindWrapper xla_tensor_data("xla::tensor_data");
 const OpKindWrapper xla_unselect("xla::unselect");
 const OpKindWrapper xla_update_slice("xla::update_slice");
 
+const OpKindWrapper xla_dropout("xla::dropout");
+const OpKindWrapper xla_dropout_backward("xla::dropout_backward");
+
 }  // namespace ops
 }  // namespace ir
 }  // namespace torch_xla

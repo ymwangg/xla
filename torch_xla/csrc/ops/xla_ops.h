@@ -53,6 +53,9 @@ extern const OpKindWrapper xla_tensor_data;
 extern const OpKindWrapper xla_unselect;
 extern const OpKindWrapper xla_update_slice;
 
+extern const OpKindWrapper xla_dropout;
+extern const OpKindWrapper xla_dropout_backward;
+
 }  // namespace ops
 }  // namespace ir
 }  // namespace torch_xla
