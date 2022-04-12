@@ -158,4 +158,66 @@ void XlaCustomRngCuda(CUstream stream, void** buffers, const char* opaque,
 XLA_REGISTER_CUSTOM_CALL_TARGET_WITH_SYM("XlaCustomRngCuda", XlaCustomRngCuda,
                                          "CUDA");
 
+
+absl::Status XlaCustomDropoutCuda_(CUstream stream, void** buffers,
+                                     const char* opaque, size_t opaque_len) {
+  const void* input = reinterpret_cast<const void*>(buffers[0]);
+  void* output = reinterpret_cast<void*>(buffers[1]);
+  uint8_t* mask = reinterpret_cast<uint8_t*>(buffers[2]);
+  // std::cout << input << "," << (void*)mask << "," << output << std::endl;
+
+  xla::ShapeProto shape;
+  if (!shape.ParseFromArray(opaque, opaque_len)) {
+    return absl::InternalError("Failed parsing the shape proto");
+  }
+  int64_t num_elements = 1;
+  for (auto dim : shape.dimensions()) {
+    num_elements *= dim;
+  }
+
+  curandGenerator_t& generator = CurandContext::Get()->GetCurandGenerator();
+  CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(curandSetStream(generator, stream)));
+
+  switch (shape.element_type()) {
+    case xla::PrimitiveType::F16:
+      std::cout << "F16," << num_elements << std::endl;
+      LaunchDropoutKernelHalf(
+          stream, reinterpret_cast<const __half*>(input),
+          reinterpret_cast<__half*>(output), mask, num_elements);
+      CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(cudaGetLastError()));
+      break;
+    case xla::PrimitiveType::F32:
+      std::cout << "F32," << num_elements << std::endl;
+      LaunchDropoutKernel(
+          stream, reinterpret_cast<const float*>(input),
+          reinterpret_cast<float*>(output), mask, num_elements);
+      CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(cudaGetLastError()));
+      break;
+    case xla::PrimitiveType::F64:
+      // CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(curandGenerateUniformDouble(
+      //     generator, reinterpret_cast<double*>(output), num_elements)));
+      // LaunchBernoulliKernel<double>(
+      //     stream, reinterpret_cast<const double*>(probability),
+      //     reinterpret_cast<double*>(output), num_elements);
+      // CUDA_RETURN_IF_ERROR(CUDA_AS_STATUS(cudaGetLastError()));
+      break;
+    default:
+      std::string type_name =
+          xla::primitive_util::LowercasePrimitiveTypeName(shape.element_type());
+      return absl::InternalError(
+          absl::StrCat("Unsupported data type: ", type_name));
+  }
+  return absl::OkStatus();
+}
+
+void XlaCustomDropoutCuda(CUstream stream, void** buffers, const char* opaque,
+                            size_t opaque_len, XlaCustomCallStatus* status) {
+  auto result = XlaCustomDropoutCuda_(stream, buffers, opaque, opaque_len);
+  if (!result.ok()) {
+    absl::string_view message = result.message();
+    XlaCustomCallStatusSetFailure(status, message.data(), message.length());
+  }
+}
+XLA_REGISTER_CUSTOM_CALL_TARGET_WITH_SYM("XlaCustomDropoutCuda",
+                                         XlaCustomDropoutCuda, "CUDA");
 }  // namespace xla_custom_cuda_ops

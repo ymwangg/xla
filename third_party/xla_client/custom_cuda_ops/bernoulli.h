@@ -2,8 +2,8 @@
 #define XLA_CUSTOM_BERNOULLI_
 
 #include <cuda.h>
-#include <curand.h>
 #include <cuda_fp16.h>
+#include <curand.h>
 
 #include <algorithm>
 
@@ -29,6 +29,12 @@ void LaunchBernoulliKernelHalf(CUstream stream, const __half* probability,
                                __half* value, uint64_t num_elements);
 void LaunchRng(CUstream stream, float* output, uint64_t num_elements);
 void LaunchRngHalf(CUstream stream, __half* output, uint64_t num_elements);
+
+void LaunchDropoutKernelHalf(CUstream stream, const __half* input,
+                             __half* output, uint8_t* mask,
+                             uint64_t num_elements);
+void LaunchDropoutKernel(CUstream stream, const float* input, float* output,
+                         uint8_t* mask, uint64_t num_elements);
 
 // A helper class to store curandGenerator
 class CurandContext {

@@ -1080,16 +1080,39 @@ torch::lazy::NodePtr OptimizationBarrier(const Value& input) {
 
 NodePtr Dropout(const Value& input, double probability) {
   auto lower_fn = [](const Node& node, LoweringContext* loctx) -> XlaOpVector {
-    xla::XlaOp xla_input = loctx->GetOutputOp(node.operand(0));
-    xla::XlaOp xla_output = xla_input;
-    std::vector<xla::XlaOp> ops = {
-        xla_output, xla::One(loctx->builder(), xla::PrimitiveType::PRED)};
+    xla::XlaOp input = loctx->GetOutputOp(node.operand(0));
+    // xla::PrimitiveType type = XlaHelpers::ShapeOfXlaOp(input).element_type();
+    // input = xla::ConvertElementType(input, xla::PrimitiveType::F16);
+    xla::Shape input_shape = XlaHelpers::ShapeOfXlaOp(input);
+    xla::Shape out_shape = xla::ShapeUtil::MakeTupleShape({
+        input_shape,
+        xla::ShapeUtil::MakeShape(xla::PrimitiveType::U8,
+                                  input_shape.dimensions()),
+    });
+    std::string shape_proto;
+    input_shape.ToProto().SerializeToString(&shape_proto);
+    // absl::Span<
+    //     const std::pair<xla::ShapeIndex, std::pair<int64_t, xla::ShapeIndex>>>
+    //     alias({std::pair<xla::ShapeIndex, std::pair<int64_t, xla::ShapeIndex>>{
+    //       xla::ShapeIndex{0}, std::pair<int64_t, xla::ShapeIndex>(0, {0})}});
+    // std::cout << "build" << std::endl;
+    xla::XlaOp outputs = xla::CustomCall(
+        loctx->builder(), "XlaCustomDropoutCuda", /*operands=*/{input},
+        /*shape=*/out_shape, shape_proto, /*has_side_effect=*/true,
+        /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+        /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+        /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+    // std::cout << "done" << std::endl;
+    // std::vector<xla::XlaOp> ops = {xla::ConvertElementType(xla::GetTupleElement(outputs, 0), type) ,
+    //                                xla::GetTupleElement(outputs, 1)};
+    std::vector<xla::XlaOp> ops = {xla::GetTupleElement(outputs, 0),
+                                   xla::GetTupleElement(outputs, 1)};
     return node.ReturnOps(ops, loctx);
   };
   auto lower_for_shape_fn =
       [](absl::Span<const xla::XlaOp> operands) -> xla::XlaOp {
     xla::XlaOp ones =
-        xla::ConvertElementType(operands[0], xla::PrimitiveType::PRED);
+        xla::ConvertElementType(operands[0], xla::PrimitiveType::U8);
     return xla::Tuple(operands[0].builder(), {operands[0], ones});
   };
   return GenericOp(
