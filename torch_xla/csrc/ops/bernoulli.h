@@ -19,7 +19,7 @@ class BernoulliCuda : public Node {
  public:
   BernoulliCuda(const Value& probability, xla::Shape shape);
 
-  NodePtr Clone(OpList operands) const override;
+  torch::lazy::NodePtr Clone(OpList operands) const override;
 
   XlaOpVector Lower(LoweringContext* loctx) const override;
 };

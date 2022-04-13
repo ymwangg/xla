@@ -34,7 +34,7 @@ BernoulliCuda::BernoulliCuda(const Value& probability, xla::Shape shape)
     : Node(torch::lazy::OpKind(at::aten::bernoulli), {probability},
            std::move(shape)) {}
 
-NodePtr BernoulliCuda::Clone(OpList operands) const {
+torch::lazy::NodePtr BernoulliCuda::Clone(OpList operands) const {
   return ir::MakeNode<BernoulliCuda>(operands.at(0), xla_shape());
 }
 

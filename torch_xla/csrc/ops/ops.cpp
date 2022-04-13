@@ -1078,7 +1078,7 @@ torch::lazy::NodePtr OptimizationBarrier(const Value& input) {
                    std::move(lower_fn));
 }
 
-NodePtr Dropout(const Value& input, const Value& probability) {
+torch::lazy::NodePtr Dropout(const Value& input, const Value& probability) {
   auto lower_fn = [](const Node& node, LoweringContext* loctx) -> XlaOpVector {
     xla::XlaOp input = loctx->GetOutputOp(node.operand(0));
     xla::PrimitiveType type = XlaHelpers::ShapeOfXlaOp(input).element_type();
@@ -1125,7 +1125,7 @@ NodePtr Dropout(const Value& input, const Value& probability) {
       std::move(lower_fn), /*num_outputs=*/2);
 }
 
-NodePtr DropoutBackward(const Value& input, const Value& mask,
+torch::lazy::NodePtr DropoutBackward(const Value& input, const Value& mask,
                         const Value& scale) {
   auto lower_fn = [](const Node& node, LoweringContext* loctx) -> XlaOpVector {
     xla::XlaOp xla_input = loctx->GetOutputOp(node.operand(0));

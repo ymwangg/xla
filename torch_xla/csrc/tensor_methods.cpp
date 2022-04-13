@@ -3025,7 +3025,7 @@ XLATensor XLATensor::dropout_backward(const XLATensor& input,
 
 std::tuple<XLATensor, XLATensor> XLATensor::dropout(const XLATensor& input,
                                                     double p) {
-  ir::NodePtr node = ir::ops::Dropout(
+  torch::lazy::NodePtr node = ir::ops::Dropout(
       input.GetIrValue(),
       GetIrValueForScalar(p, input.shape().get().element_type(),
                           input.GetDevice()));
