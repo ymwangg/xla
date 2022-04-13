@@ -252,15 +252,25 @@ __global__ void dropout_kernel_half(const __half* input, __half* out,
     m[2] = (uint8_t)(rand.z > ratio);
     m[3] = (uint8_t)(rand.w > ratio);
 
-    out[i] = __float2half(vals_half_f[0].x * scale * m[0]);
-    out[i + 1] = __float2half(vals_half_f[0].y * scale * m[1]);
-    out[i + 2] = __float2half(vals_half_f[1].x * scale * m[2]);
-    out[i + 3] = __float2half(vals_half_f[1].y * scale * m[3]);
+    __half2* vals_out = reinterpret_cast<__half2*>(out + i);
+    __half2 tmp[2];
+    tmp[0].x = __float2half(vals_half_f[0].x * scale * m[0]);
+    tmp[0].y = __float2half(vals_half_f[0].y * scale * m[1]);
+    tmp[1].x = __float2half(vals_half_f[1].x * scale * m[2]);
+    tmp[1].y = __float2half(vals_half_f[1].y * scale * m[3]);
+    vals_out[0] = tmp[0];
+    vals_out[1] = tmp[1];
+    // out[i] = __float2half(vals_half_f[0].x * scale * m[0]);
+    // out[i + 1] = __float2half(vals_half_f[0].y * scale * m[1]);
+    // out[i + 2] = __float2half(vals_half_f[1].x * scale * m[2]);
+    // out[i + 3] = __float2half(vals_half_f[1].y * scale * m[3]);
 
-    mask[i] = m[0];
-    mask[i + 1] = m[1];
-    mask[i + 2] = m[2];
-    mask[i + 3] = m[3];
+    // mask[i] = m[0];
+    // mask[i + 1] = m[1];
+    // mask[i + 2] = m[2];
+    // mask[i + 3] = m[3];
+    uchar4* mask_vals = reinterpret_cast<uchar4*>(mask + i);
+    *mask_vals = *reinterpret_cast<uchar4*>(m);
   }
   int high_index = ((((N / unroll_factor) - 1) / blockDim.x + 1) *
                     (unroll_factor * blockDim.x)) +
@@ -298,15 +308,24 @@ __global__ void dropout_kernel(const float* input, float* out, uint8_t* mask,
     m[2] = (uint8_t)(rand.z > ratio);
     m[3] = (uint8_t)(rand.w > ratio);
 
-    out[i] = in_vals->x * scale * m[0];
-    out[i + 1] = in_vals->y * scale * m[1];
-    out[i + 2] = in_vals->z * scale * m[2];
-    out[i + 3] = in_vals->w * scale * m[3];
+    float4 tmp;
+    tmp.x = in_vals->x * scale * m[0];
+    tmp.y = in_vals->y * scale * m[1];
+    tmp.z = in_vals->z * scale * m[2];
+    tmp.w = in_vals->w * scale * m[3];
+    float4* out_vals = reinterpret_cast<float4*>(out + i);
+    *out_vals = tmp;
+    // out[i] = in_vals->x * scale * m[0];
+    // out[i + 1] = in_vals->y * scale * m[1];
+    // out[i + 2] = in_vals->z * scale * m[2];
+    // out[i + 3] = in_vals->w * scale * m[3];
 
-    mask[i] = m[0];
-    mask[i + 1] = m[1];
-    mask[i + 2] = m[2];
-    mask[i + 3] = m[3];
+    // mask[i] = m[0];
+    // mask[i + 1] = m[1];
+    // mask[i + 2] = m[2];
+    // mask[i + 3] = m[3];
+    uchar4* mask_vals = reinterpret_cast<uchar4*>(mask + i);
+    *mask_vals = *reinterpret_cast<uchar4*>(m);
   }
   int high_index = ((((N / unroll_factor) - 1) / blockDim.x + 1) *
                     (unroll_factor * blockDim.x)) +

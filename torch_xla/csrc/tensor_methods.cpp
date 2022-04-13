@@ -3015,13 +3015,20 @@ XLATensor XLATensor::DispatchComparisonOp(c10::Symbol kind,
   return Create(node, input.GetDevice(), at::ScalarType::Bool);
 }
 
-XLATensor XLATensor::dropout_backward(const XLATensor& input, const XLATensor& mask, double p) {
-  return input.CreateFrom(ir::ops::DropoutBackward(input.GetIrValue(), mask.GetIrValue(), p));
+XLATensor XLATensor::dropout_backward(const XLATensor& input,
+                                      const XLATensor& mask, double p) {
+  return input.CreateFrom(ir::ops::DropoutBackward(
+      input.GetIrValue(), mask.GetIrValue(),
+      GetIrValueForScalar(p, input.shape().get().element_type(),
+                          input.GetDevice())));
 }
 
 std::tuple<XLATensor, XLATensor> XLATensor::dropout(const XLATensor& input,
                                                     double p) {
-  ir::NodePtr node = ir::ops::Dropout(input.GetIrValue(), p);
+  ir::NodePtr node = ir::ops::Dropout(
+      input.GetIrValue(),
+      GetIrValueForScalar(p, input.shape().get().element_type(),
+                          input.GetDevice()));
   XLATensor out = input.CreateFrom(ir::Value(node, 0));
   XLATensor mask = input.CreateFrom(ir::Value(node, 1));
 

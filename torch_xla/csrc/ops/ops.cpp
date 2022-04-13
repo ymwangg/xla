@@ -1078,11 +1078,11 @@ torch::lazy::NodePtr OptimizationBarrier(const Value& input) {
                    std::move(lower_fn));
 }
 
-NodePtr Dropout(const Value& input, double probability) {
+NodePtr Dropout(const Value& input, const Value& probability) {
   auto lower_fn = [](const Node& node, LoweringContext* loctx) -> XlaOpVector {
     xla::XlaOp input = loctx->GetOutputOp(node.operand(0));
-    // xla::PrimitiveType type = XlaHelpers::ShapeOfXlaOp(input).element_type();
-    // input = xla::ConvertElementType(input, xla::PrimitiveType::F16);
+    xla::PrimitiveType type = XlaHelpers::ShapeOfXlaOp(input).element_type();
+    input = xla::ConvertElementType(input, xla::PrimitiveType::F16);
     xla::Shape input_shape = XlaHelpers::ShapeOfXlaOp(input);
     xla::Shape out_shape = xla::ShapeUtil::MakeTupleShape({
         input_shape,
@@ -1092,8 +1092,9 @@ NodePtr Dropout(const Value& input, double probability) {
     std::string shape_proto;
     input_shape.ToProto().SerializeToString(&shape_proto);
     // absl::Span<
-    //     const std::pair<xla::ShapeIndex, std::pair<int64_t, xla::ShapeIndex>>>
-    //     alias({std::pair<xla::ShapeIndex, std::pair<int64_t, xla::ShapeIndex>>{
+    //     const std::pair<xla::ShapeIndex, std::pair<int64_t,
+    //     xla::ShapeIndex>>> alias({std::pair<xla::ShapeIndex,
+    //     std::pair<int64_t, xla::ShapeIndex>>{
     //       xla::ShapeIndex{0}, std::pair<int64_t, xla::ShapeIndex>(0, {0})}});
     // std::cout << "build" << std::endl;
     xla::XlaOp outputs = xla::CustomCall(
@@ -1103,10 +1104,11 @@ NodePtr Dropout(const Value& input, double probability) {
         /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
         /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
     // std::cout << "done" << std::endl;
-    // std::vector<xla::XlaOp> ops = {xla::ConvertElementType(xla::GetTupleElement(outputs, 0), type) ,
+    std::vector<xla::XlaOp> ops = {
+        xla::ConvertElementType(xla::GetTupleElement(outputs, 0), type),
+        xla::GetTupleElement(outputs, 1)};
+    // std::vector<xla::XlaOp> ops = {xla::GetTupleElement(outputs, 0),
     //                                xla::GetTupleElement(outputs, 1)};
-    std::vector<xla::XlaOp> ops = {xla::GetTupleElement(outputs, 0),
-                                   xla::GetTupleElement(outputs, 1)};
     return node.ReturnOps(ops, loctx);
   };
   auto lower_for_shape_fn =
@@ -1123,19 +1125,22 @@ NodePtr Dropout(const Value& input, double probability) {
       std::move(lower_fn), /*num_outputs=*/2);
 }
 
-NodePtr DropoutBackward(const Value& input, const Value& mask, double scale) {
+NodePtr DropoutBackward(const Value& input, const Value& mask,
+                        const Value& scale) {
   auto lower_fn = [](const Node& node, LoweringContext* loctx) -> XlaOpVector {
     xla::XlaOp xla_input = loctx->GetOutputOp(node.operand(0));
     xla::XlaOp mask = loctx->GetOutputOp(node.operand(1));
+    xla::XlaOp scale = loctx->GetOutputOp(node.operand(2));
     xla::XlaOp xla_output =
         xla_input *
         xla::ConvertElementType(
-            mask, XlaHelpers::ShapeOfXlaOp(xla_input).element_type());
+            mask, XlaHelpers::ShapeOfXlaOp(xla_input).element_type()) *
+        scale;
     return node.ReturnOp(xla_output, loctx);
   };
 
-  return GenericOp(xla_dropout_backward, {input, mask}, input.xla_shape(),
-                   std::move(lower_fn));
+  return GenericOp(xla_dropout_backward, {input, mask, scale},
+                   input.xla_shape(), std::move(lower_fn));
 }
 
 }  // namespace ops
