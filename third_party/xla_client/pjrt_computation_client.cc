@@ -8,6 +8,7 @@
 #include "tensorflow/compiler/xla/layout_util.h"
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/pjrt/cpu_device.h"
+#include "tensorflow/compiler/xla/pjrt/gpu_device.h"
 #include "tensorflow/compiler/xla/pjrt/pjrt_client.h"
 #include "tensorflow/compiler/xla/pjrt/tpu_client.h"
 #include "tensorflow/compiler/xla/shape.h"
@@ -49,6 +50,12 @@ PjRtComputationClient::PjRtComputationClient() {
   } else if (device_type == "TPU") {
     TF_VLOG(1) << "Initializing PjRt TPU client...";
     client_ = xla::GetTpuClient(/*max_inflight_computations=*/1).ValueOrDie();
+  } else if (device_type == "GPU") {
+    TF_VLOG(1) << "Initializing PjRt GPU client...";
+    GpuAllocatorConfig allocator_config;
+    std::set<int> allowed_devices{0};
+    client_ = xla::GetGpuClient(/*asynchronous=*/false, allocator_config,
+                                /*distributed_client=*/nullptr, /*node_id=*/0, allowed_devices).ValueOrDie();
   } else {
     XLA_ERROR() << absl::StrFormat("Unknown %s '%s'", env::kEnvPjRtDevice,
                                    device_type);
