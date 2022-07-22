@@ -11,11 +11,15 @@
 #include "tensorflow/compiler/xla/xla_client/computation_client.h"
 #include "tensorflow/compiler/xla/xla_client/debug_macros.h"
 #include "tensorflow/compiler/xla/xla_client/util.h"
+#include "tensorflow/compiler/xla/pjrt/distributed/client.h"
+#include "tensorflow/compiler/xla/pjrt/distributed/distributed.h"
 
 namespace xla {
 
 class PjRtComputationClient : public ComputationClient {
  public:
+  std::shared_ptr<xla::DistributedRuntimeClient> distributed_client_;
+  std::shared_ptr<xla::DistributedRuntimeService> distributed_service_;
   PjRtComputationClient();
 
   DataPtr CreateDataPlaceholder(std::string device, Shape shape) override;
@@ -101,7 +105,7 @@ class PjRtComputationClient : public ComputationClient {
     XLA_ERROR() << __FUNCTION__ << " not implemented";
   };
 
-  std::map<std::string, Metric> GetMetrics() const override {
+  std::map<std::string, Metric> GetMetrics() override {
     XLA_ERROR() << __FUNCTION__ << " not implemented";
   };
 

@@ -8,6 +8,7 @@
 #include "tensorflow/compiler/xla/layout_util.h"
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/pjrt/cpu_device.h"
+#include "tensorflow/compiler/xla/pjrt/gpu_device.h"
 #include "tensorflow/compiler/xla/pjrt/pjrt_client.h"
 #include "tensorflow/compiler/xla/pjrt/tpu_client.h"
 #include "tensorflow/compiler/xla/shape.h"
@@ -49,6 +50,26 @@ PjRtComputationClient::PjRtComputationClient() {
   } else if (device_type == "TPU") {
     TF_VLOG(1) << "Initializing PjRt TPU client...";
     client_ = xla::GetTpuClient(/*max_inflight_computations=*/1).ValueOrDie();
+  } else if (device_type == "GPU") {
+    TF_VLOG(1) << "Initializing PjRt GPU client...";
+    std::string coordinator = sys_util::GetEnvString("XLA_HOST","localhost:8888");
+    int node_id = sys_util::GetEnvInt("CUDA_VISIBLE_DEVICES", 0);
+
+    std::cout << "node_id=" << node_id << std::endl;
+    if (node_id == 0) {
+      xla::DistributedRuntimeServiceImpl::Options service_options;
+      service_options.num_nodes = 8;
+      distributed_service_ = xla::GetDistributedRuntimeService(coordinator, service_options).ValueOrDie();
+      std::cout << "service done" << node_id << std::endl;
+    }
+    xla::DistributedRuntimeClient::Options options;
+    options.node_id = node_id;
+    distributed_client_ = xla::GetDistributedRuntimeClient(coordinator, options);
+    // distributed_client_->Connect();
+    std::cout << "connect done " << node_id << std::endl;
+    GpuAllocatorConfig allocator_config;
+    client_ = xla::GetGpuClient(/*asynchronous=*/false, allocator_config,
+                                /*distributed_client=*/distributed_client_, /*node_id=*/node_id).ValueOrDie();
   } else {
     XLA_ERROR() << absl::StrFormat("Unknown %s '%s'", env::kEnvPjRtDevice,
                                    device_type);

@@ -264,6 +264,7 @@ XrtComputationClient::XrtComputationClient(
 
   auto default_device_target =
       options_.global_device_map.find(options_.default_device);
+  std::cout << options_ << std::endl;
   XLA_CHECK(default_device_target != options_.global_device_map.end())
       << options_.default_device;
   for (auto& device : options_.devices) {
@@ -1082,6 +1083,10 @@ const std::string& XrtComputationClient::TorchDeviceToXrtDevice(
   auto device_target = options_.global_device_map.find(device);
   XLA_CHECK(device_target != options_.global_device_map.end())
       << "Unable to find device: " << device;
+  // for (auto kv : options_.global_device_map) {
+  //   std::cout << kv.first << ",";
+  // }
+  // std::cout << std::endl;
   return device_target->second;
 }
 
@@ -1572,7 +1577,7 @@ XrtComputationClient::GetReplicationDevices() {
 
 void XrtComputationClient::SetRngSeed(size_t seed) { rng_seed_ = seed; }
 
-std::map<std::string, Metric> XrtComputationClient::GetMetrics() const {
+std::map<std::string, Metric> XrtComputationClient::GetMetrics() {
   static const std::map<std::string, std::string>* metric_remap =
       new std::map<std::string, std::string>{
           {"/tensorflow/xrt/ops/allocate", "XrtAllocate"},
@@ -1600,19 +1605,25 @@ std::map<std::string, Metric> XrtComputationClient::GetMetrics() const {
   std::map<std::string, Metric> metrics_data;
   xrt::XRTMetricsCollect metrics;
   metrics.add_metrics_regex("/tensorflow/xrt/.*");
-
+  std::string id = sys_util::GetEnvString("CUDA_VISIBLE_DEVICES", "0");
+  std::string device = absl::StrCat("GPU:", id);
   for (auto& worker_target : options_.workers_map) {
-    tensorflow::SessionOptions session_options;
-    session_options.env = tensorflow::Env::Default();
-    session_options.target = worker_target.second;
-    session_options.config = session_cache_->GetConfig();
+    const std::string& xrt_device = TorchDeviceToXrtDevice(device);
+    XrtSessionCache::SessionMap session_map;
+    XrtSession* session =
+        GetSessionForXrtDevice(session_cache_.get(), xrt_device, &session_map);
+    // tensorflow::SessionOptions session_options;
+    // session_options.env = tensorflow::Env::Default();
+    // session_options.target = worker_target.second;
+    // session_options.config = session_cache_->GetConfig();
 
-    tensorflow::Scope root = tensorflow::Scope::NewRootScope();
-    tensorflow::ClientSession session(root, session_options);
+    // tensorflow::Scope root = tensorflow::Scope::NewRootScope();
+    // tensorflow::ClientSession session(root, session_options);
     std::string cpu0_device = absl::StrCat(
         "/job:", worker_target.first.name,
         "/replica:0/task:", worker_target.first.task_no, "/device:CPU:0");
-    tensorflow::Scope cpu_system_scope = root.WithDevice(cpu0_device);
+    // std::cout << cpu0_device << " " << session_options.target << std::endl;
+    tensorflow::Scope cpu_system_scope = session->root()->WithDevice(cpu0_device);
     auto metrics_value =
         tensorflow::ops::Const(cpu_system_scope, metrics.SerializeAsString());
     tensorflow::Output result =
@@ -1620,7 +1631,7 @@ std::map<std::string, Metric> XrtComputationClient::GetMetrics() const {
     XLA_CHECK_OK(cpu_system_scope.status());
 
     std::vector<tensorflow::Tensor> outputs;
-    XLA_CHECK_OK(session.Run({result}, &outputs));
+    XLA_CHECK_OK(session->session()->Run({result}, &outputs));
     XLA_CHECK_EQ(outputs.size(), 1);
 
     xrt::MetricsReport report = ParseProto<xrt::MetricsReport>(outputs[0]);

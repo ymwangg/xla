@@ -116,6 +116,7 @@ void PopulateLocalDevices(XrtComputationClient::Options* options) {
     if (worker.task_no >= 0) {
       tensorflow::DeviceNameUtils::ParsedName parsed_device =
           ParseXrtDevice(device_xrt_device.second);
+      std::cout << parsed_device << std::endl;
       if (!IsLocalDevice(worker, parsed_device, dev_task_map)) {
         continue;
       }
@@ -260,6 +261,15 @@ bool ParseEnvDevices(XrtComputationClient::Options* options) {
       options->workers_map.emplace(XrtComputationClient::ParseWorker(parts[0]),
                                    MakeGrpcEndPoint(parts[1]));
     }
+  }
+  std::cout << "ParseEnvDevices" << std::endl;
+  std::cout << "global_device_map" << std::endl;
+  for (auto& item : options->global_device_map) {
+    std::cout << item.first << "->" << item.second << std::endl;
+  }
+  std::cout << "workers_map" << std::endl;
+  for (auto& item : options->workers_map) {
+    std::cout << item.first.name << "," << item.first.task_no << "->" << item.second << std::endl;
   }
   return !options->global_device_map.empty();
 }

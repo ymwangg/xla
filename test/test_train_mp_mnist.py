@@ -1,4 +1,5 @@
 import args_parse
+import time
 
 FLAGS = args_parse.parse_common_options(
     datadir='/tmp/mnist-data',
@@ -173,8 +174,38 @@ def train_mnist(flags, **kwargs):
   xm.master_print('Max Accuracy: {:.2f}%'.format(max_accuracy))
   return max_accuracy
 
+def checkenv(var):
+    selected = """
+    GPU_NUM_DEVICES
+    CUDA_VISIBLE_DEVICES
+    #TF_CPP_MIN_LOG_LEVEL
+    #TF_GRPC_DEFAULT_OPTIONS
+    #TPU_LIBRARY_PATH
+    #XLA_FLAGS
+    XRT_DEVICE_MAP
+    XRT_HOST_WORLD_SIZE
+    XRT_LOCAL_WORKER
+    XRT_MESH_SERVICE_ADDRESS
+    XRT_MULTI_PROCESSING_DEVICE
+    XRT_SHARD_LOCAL_ORDINAL
+    XRT_SHARD_ORDINAL
+    XRT_SHARD_WORLD_SIZE
+    XRT_TORCH_DIST_ROOT
+    XRT_WORKERS
+    """.split()
+    selected = filter(lambda x: x[0]!='#', selected)
+    return var in selected
+
+def printenv():
+  env = [(k,v) for k,v in os.environ.items() if checkenv(k)]
+  print("--------------begin of device:{}---------------".format(xm.get_local_ordinal()))
+  for k,v in env:
+    print("{}={}".format(k,v))
+  print("--------------end of device:{}---------------".format(xm.get_local_ordinal()))
+
 
 def _mp_fn(index, flags):
+  printenv()
   torch.set_default_tensor_type('torch.FloatTensor')
   accuracy = train_mnist(flags)
   if flags.tidy and os.path.isdir(flags.datadir):
@@ -186,4 +217,5 @@ def _mp_fn(index, flags):
 
 
 if __name__ == '__main__':
+  printenv() 
   xmp.spawn(_mp_fn, args=(FLAGS,), nprocs=FLAGS.num_cores)

@@ -289,7 +289,7 @@ class ComputationClient {
 
   virtual void SetRngSeed(size_t seed) = 0;
 
-  virtual std::map<std::string, Metric> GetMetrics() const = 0;
+  virtual std::map<std::string, Metric> GetMetrics() = 0;
 
   virtual MemoryInfo GetMemoryInfo(const std::string& device) = 0;
 

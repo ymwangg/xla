@@ -39,7 +39,7 @@ if [[ "$XLA_SANDBOX_BUILD" == "1" ]]; then
   BUILD_STRATEGY="sandboxed --sandbox_tmpfs_path=/tmp"
 else
   # Temporary patch until tensorflow update bazel requirement to 5.2.0
-  echo "6e54699884cfad49d4e8f6dd59a4050bc95c4edf" > third_party/tensorflow/.bazelversion
+  # echo "6e54699884cfad49d4e8f6dd59a4050bc95c4edf" > third_party/tensorflow/.bazelversion
   # We can remove this after https://github.com/bazelbuild/bazel/issues/15359 is resolved
   unset CC
   unset CXX
@@ -75,7 +75,7 @@ else
 
   pushd $THIRD_PARTY_DIR/tensorflow
   bazel build $MAX_JOBS $VERBOSE $TPUVM_FLAG --spawn_strategy=$BUILD_STRATEGY --show_progress_rate_limit=20 \
-    --define framework_shared_object=false -c "$MODE" "${OPTS[@]}" \
+    --define framework_shared_object=false --per_file_copt=+tensorflow/compiler.*@-O0,-g "${OPTS[@]}" \
     $XLA_CUDA_CFG //tensorflow/compiler/xla/xla_client:libxla_computation_client.so
 
   popd

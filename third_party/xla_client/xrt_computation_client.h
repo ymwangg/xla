@@ -74,7 +74,7 @@ class XrtLocker {
 
 class DataHandleLocker : public XrtLocker {
  public:
-  static const int64_t dummy_handle = -151235;
+  inline static const int64_t dummy_handle = -151235;
 };
 
 class XrtComputationClient : public ComputationClient {
@@ -231,6 +231,19 @@ class XrtComputationClient : public ComputationClient {
     std::set<std::string> devices;
     // Maps a TPU Worker with an EndPoint.
     std::map<Worker, std::string> workers_map;
+    friend std::ostream& operator<<(std::ostream& os, const Options& options) {
+      os << "options.default_device->" << options.default_device << std::endl;
+      os << "options.devices->";
+      for (auto& v : options.devices) {
+        os << v << ";";
+      }
+      os << std::endl;
+      os << "options.global_device_map:" << std::endl;
+      for (auto& v : options.global_device_map) {
+        os << v.first << "->" << v.second << std::endl;
+      }
+      return os;
+    }
   };
 
   XrtComputationClient(
@@ -297,7 +310,7 @@ class XrtComputationClient : public ComputationClient {
 
   void SetRngSeed(size_t seed) override;
 
-  std::map<std::string, Metric> GetMetrics() const override;
+  std::map<std::string, Metric> GetMetrics() override;
 
   MemoryInfo GetMemoryInfo(const std::string& device) override;
 

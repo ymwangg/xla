@@ -128,7 +128,7 @@ class XlaBackendImpl : public torch::lazy::BackendImplInterface {
   std::vector<torch::lazy::BackendDataPtr> ExecuteComputation(
       torch::lazy::Computation& computation,
       c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
-      const torch::lazy::BackendDevice& device) const override {
+      const torch::lazy::BackendDevice& device) const {
     xla::ComputationClient::ExecuteComputationOptions options;
     // TODO(JackCaoG): remove this hack and use computation when it is a ptr
     torch::lazy::ComputationPtr temp;
