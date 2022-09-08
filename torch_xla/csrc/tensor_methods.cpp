@@ -2704,4 +2704,12 @@ XLATensorPtr XLATensor::DispatchComparisonOp(c10::Symbol kind,
   return Create(node, input->GetDevice(), at::ScalarType::Bool);
 }
 
+XLATensorPtr XLATensor::cdist_forward(const XLATensorPtr& x1,
+                                      const XLATensorPtr& x2, double p) {
+  torch::lazy::NodePtr node =
+      CdistForwardOp(x1->GetIrValue(), x2->GetIrValue(),
+                     GetIrValueForScalar(p, x1->GetDevice()));
+  return x1->CreateFrom(node);
+}
+
 }  // namespace torch_xla

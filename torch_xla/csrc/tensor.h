@@ -1218,6 +1218,9 @@ class XLATensor : public c10::intrusive_ptr_target {
 
   const c10::Storage& Storage() const { return storage_; }
 
+  static XLATensorPtr cdist_forward(const XLATensorPtr& x1,
+                                    const XLATensorPtr& x2, double p);
+
  private:
   struct SyncTensorsConfig {
     // Whether we want to force XLA data on the target tensors (hence trimming

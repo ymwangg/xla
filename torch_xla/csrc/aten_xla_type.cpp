@@ -3141,4 +3141,11 @@ at::Tensor XLANativeFunctions::slice_backward(const at::Tensor& grad_output,
                                     step);
 }
 
+at::Tensor XLANativeFunctions::_cdist_forward(
+    const at::Tensor& x1, const at::Tensor& x2, double p,
+    c10::optional<int64_t> compute_mode) {
+  return bridge::AtenFromXlaTensor(XLATensor::cdist_forward(
+      bridge::GetXlaTensor(x1), bridge::GetXlaTensor(x2), p));
+}
+
 }  // namespace torch_xla
