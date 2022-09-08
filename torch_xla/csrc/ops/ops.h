@@ -232,4 +232,8 @@ torch::lazy::NodePtr Softplus(const torch::lazy::Value& input,
 
 torch::lazy::NodePtr Selu(const torch::lazy::Value& input);
 
+torch::lazy::NodePtr CdistForwardOp(const torch::lazy::Value& x1,
+                                    const torch::lazy::Value& x2,
+                                    const torch::lazy::Value& p);
+
 }  // namespace torch_xla
