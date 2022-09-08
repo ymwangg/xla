@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "tensorflow/compiler/xla/client/lib/constants.h"
 #include "tensorflow/compiler/xla/client/lib/logdet.h"
 #include "tensorflow/compiler/xla/client/lib/math.h"
 #include "tensorflow/compiler/xla/client/lib/matrix.h"
@@ -831,6 +832,73 @@ torch::lazy::NodePtr Selu(const torch::lazy::Value& input) {
   };
   return GenericOp(torch::lazy::OpKind(at::aten::selu), {input},
                    GetXlaShape(input), std::move(lower_fn));
+}
+
+xla::XlaOp BuildCdistForward(xla::XlaOp x1, xla::XlaOp x2, xla::XlaOp p) {
+  const xla::Shape& x1_shape = XlaHelpers::ShapeOfXlaOp(x1);
+  const xla::Shape& x2_shape = XlaHelpers::ShapeOfXlaOp(x2);
+  p = MaybeConvertTo(p, x1_shape.element_type());
+  XLA_CHECK(x1_shape.rank() == x2_shape.rank())
+      << "x1 and x2 must have same num of dimensions";
+  XLA_CHECK(x1_shape.rank() == 2 || x1_shape.rank() == 3)
+      << "x1 must have 2 or 3 dimensions";
+  XLA_CHECK(x1_shape.dimensions(x1_shape.rank() - 1) ==
+            x2_shape.dimensions(x2_shape.rank() - 1))
+      << "the last dimension of x1 and x2 must match";
+  std::vector<int64_t> bcast_shape;
+  std::vector<int64_t> x1_dim_to_bcast;
+  std::vector<int64_t> x2_dim_to_bcast;
+  int64_t dim = 0;
+  if (x1_shape.rank() == 3) {
+    bcast_shape = {x1_shape.dimensions(0), x1_shape.dimensions(1),
+                   x2_shape.dimensions(1), x1_shape.dimensions(2)};
+    x1_dim_to_bcast = {0, 1, 3};
+    x2_dim_to_bcast = {0, 2, 3};
+    dim = 3;
+  } else {
+    bcast_shape = {x1_shape.dimensions(0), x2_shape.dimensions(0),
+                   x1_shape.dimensions(1)};
+    x1_dim_to_bcast = {0, 2};
+    x2_dim_to_bcast = {1, 2};
+    dim = 2;
+  }
+  xla::XlaOp x1_bcast = xla::BroadcastInDim(x1, bcast_shape, x1_dim_to_bcast);
+  xla::XlaOp x2_bcast = xla::BroadcastInDim(x2, bcast_shape, x2_dim_to_bcast);
+  xla::XlaOp abs = xla::Pow(xla::Abs(x1_bcast - x2_bcast), p);
+  xla::XlaOp init_value = xla::Zero(x1.builder(), x1_shape.element_type());
+  xla::XlaOp reduce = xla::Reduce(
+      abs, init_value,
+      XlaHelpers::CreateAddComputation(x1_shape.element_type()), {dim});
+  xla::XlaOp one = xla::One(x1.builder(), x1_shape.element_type());
+  xla::XlaOp p_norm = xla::Pow(reduce, xla::Div(one, p));
+  return p_norm;
+}
+
+torch::lazy::NodePtr CdistForwardOp(const torch::lazy::Value& x1,
+                                    const torch::lazy::Value& x2,
+                                    const torch::lazy::Value& p) {
+  auto lower_fn = [](const XlaNode& node,
+                     LoweringContext* loctx) -> XlaOpVector {
+    xla::XlaOp x1 = loctx->GetOutputOp(node.operand(0));
+    xla::XlaOp x2 = loctx->GetOutputOp(node.operand(1));
+    xla::XlaOp p = loctx->GetOutputOp(node.operand(2));
+    xla::XlaOp output = BuildCdistForward(x1, x2, p);
+    return node.ReturnOp(output, loctx);
+  };
+
+  auto lower_for_shape_fn =
+      [](absl::Span<const xla::XlaOp> operands) -> xla::XlaOp {
+    XLA_CHECK_EQ(operands.size(), 3) << "Unexpected number of operands";
+    return BuildCdistForward(operands[0], operands[1], operands[2]);
+  };
+
+  return GenericOp(torch::lazy::OpKind(at::aten::cdist), {x1, x2, p},
+                   [&]() {
+                     return InferOutputShape(
+                         {GetXlaShape(x1), GetXlaShape(x2), GetXlaShape(p)},
+                         lower_for_shape_fn);
+                   },
+                   std::move(lower_fn));
 }
 
 }  // namespace torch_xla
