@@ -343,6 +343,8 @@ supported:
   - select_backward
   - linalg_pinv.atol_rtol_tensor
   - _cdist_forward
+  - native_dropout
+  - native_dropout_backward
   # The same applies to these ops, but we already have direct lowerings for them
   # - _trilinear
   # - logsumexp.out

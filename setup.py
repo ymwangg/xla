@@ -291,6 +291,7 @@ library_dirs.append(lib_path)
 extra_link_args = []
 
 DEBUG = _check_env_flag('DEBUG')
+XLA_CUDA = _check_env_flag('XLA_CUDA')
 IS_DARWIN = (platform.system() == 'Darwin')
 IS_LINUX = (platform.system() == 'Linux')
 
@@ -320,6 +321,12 @@ if DEBUG:
   extra_link_args += ['-O0', '-g']
 else:
   extra_compile_args += ['-DNDEBUG']
+
+if XLA_CUDA:
+  extra_compile_args += ['-DXLA_CUDA']
+  include_dirs += [
+      os.path.join(third_party_path, 'tensorflow/bazel-bin/external/local_config_cuda/cuda/cuda/include')
+  ]
 
 extra_link_args += ['-lxla_computation_client']
 

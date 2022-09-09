@@ -749,6 +749,18 @@ ConvertDictToMap(const py::dict& dictionary) {
   return map;
 }
 
+std::pair<at::Tensor, at::Tensor> LinearSumAssignment(const at::Tensor& input,
+                                                      bool maximize) {
+  XLATensorPtr xla_input = bridge::GetXlaTensor(input);
+  XLATensorPtr row_index;
+  XLATensorPtr col_index;
+  std::tie(row_index, col_index) =
+      XLATensor::linear_sum_assignment(xla_input, maximize);
+  return std::pair<at::Tensor, at::Tensor>(
+      bridge::AtenFromXlaTensor(std::move(row_index)),
+      bridge::AtenFromXlaTensor(std::move(col_index)));
+}
+
 // Maps PT/XLA env vars to upstream torch::lazy env vars.
 // Upstream lazy env vars defined in torch/csrc/lazy/core/config.h.
 void MapXlaEnvVarsToLazy() {
@@ -1497,6 +1509,22 @@ void InitXlaModuleBindings(py::module m) {
     MapXlaEnvVarsToLazy();
     InitXlaBackend();
   });
+
+  m.def(
+      "_xla_linear_sum_assignment", [](const at::Tensor& input, bool maximize) {
+        at::Tensor row_index;
+        at::Tensor col_index;
+        {
+          NoGilSection nogil;
+          std::tie(row_index, col_index) = LinearSumAssignment(input, maximize);
+        }
+        auto result_tuple = py::tuple(2);
+        result_tuple[0] =
+            torch::autograd::make_variable(row_index, /*requires_grad=*/false);
+        result_tuple[1] =
+            torch::autograd::make_variable(col_index, /*requires_grad=*/false);
+        return result_tuple;
+      });
 
   BuildProfilerSubmodule(&m);
 }

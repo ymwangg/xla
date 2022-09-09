@@ -5,6 +5,7 @@
 
 #include "tensorflow/compiler/xla/client/lib/constants.h"
 #include "tensorflow/compiler/xla/client/lib/prng.h"
+#include "tensorflow/compiler/xla/service/custom_call_target_registry.h"
 #include "tensorflow/compiler/xla/xla_client/debug_macros.h"
 #include "tensorflow/compiler/xla/xla_client/sys_util.h"
 #include "torch_xla/csrc/convert_ops.h"
@@ -112,6 +113,31 @@ xla::XlaOp RngUniform(xla::XlaOp seed, const xla::Shape& shape,
   xla::XlaOp rng_maxval = MakeUniformBoundaryValue(maxval);
   xla::XlaOp initial_state =
       xla::Zero(rng_seed.builder(), xla::PrimitiveType::U64);
+
+#if XLA_CUDA
+  // Optionally use curand lib to improve the RNG performance when CUDA is
+  // available
+  static bool use_curand = xla::sys_util::GetEnvBool("XLA_USE_CURAND", false);
+  if (use_curand) {
+    switch (shape.element_type()) {
+      case xla::PrimitiveType::F16:
+      case xla::PrimitiveType::F32:
+      case xla::PrimitiveType::F64: {
+        std::string rng_shape_proto;
+        rng_shape.ToProto().SerializeToString(&rng_shape_proto);
+        xla::XlaOp rng =
+            xla::CustomCall(rng_seed.builder(), "XlaCustomRngCuda", /*operands=*/{seed},
+                            /*shape=*/rng_shape, rng_shape_proto, true,
+                            /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
+                            /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
+                            /*api_version=*/xla::API_VERSION_STATUS_RETURNING);
+        rng = xla::ConvertElementType(rng, shape.element_type());
+        return (maxval - minval) * rng + minval;
+      }
+    }
+  }
+#endif
+
   switch (shape.element_type()) {
     case xla::PrimitiveType::F16:
     case xla::PrimitiveType::BF16: {
