@@ -46,6 +46,10 @@
 #include "torch_xla/csrc/tensor_util.h"
 #include "torch_xla/csrc/torch_util.h"
 
+#if XLA_CUDA
+#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/bernoulli.h"
+#endif
+
 namespace torch_xla {
 namespace {
 
@@ -354,6 +358,14 @@ class XLATensor::DeviceContextArena {
     devctx->seed = seed;
     devctx->running_seed = devctx->seed;
     devctx->seed_ir_value = torch::lazy::Value();
+#if XLA_CUDA
+    // Optionally use curand library for bernoulli operator
+    static bool use_custom_bernoulli =
+        xla::sys_util::GetEnvBool("XLA_CUSTOM_BERNOULLI", false);
+    if (use_custom_bernoulli) {
+      xla_custom_cuda_ops::CurandContext::Get()->SetRngSeed(seed);
+    }
+#endif
   }
 
   void MarkStep(const torch::lazy::BackendDevice& device) {

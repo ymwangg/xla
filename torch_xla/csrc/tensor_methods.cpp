@@ -2691,4 +2691,32 @@ XLATensorPtr XLATensor::cdist_forward(const XLATensorPtr& x1,
   return x1->CreateFrom(node);
 }
 
+std::pair<XLATensorPtr, XLATensorPtr> XLATensor::linear_sum_assignment(
+    const XLATensorPtr& input, bool maximize) {
+  torch::lazy::NodePtr node =
+      LinearSumAssignmentNode(input->GetIrValue(), maximize);
+  return {input->CreateFrom(torch::lazy::Value(node, 0), at::ScalarType::Long),
+          input->CreateFrom(torch::lazy::Value(node, 1), at::ScalarType::Long)};
+}
+
+XLATensorPtr XLATensor::dropout_backward(const XLATensorPtr& input,
+                                         const XLATensorPtr& mask, double p) {
+  return input->CreateFrom(DropoutBackward(
+      input->GetIrValue(), mask->GetIrValue(),
+      GetIrValueForScalar(p, input->shape().get().element_type(),
+                          input->GetDevice())));
+}
+
+std::tuple<XLATensorPtr, XLATensorPtr> XLATensor::dropout(
+    const XLATensorPtr& input, double p) {
+  torch::lazy::NodePtr node =
+      Dropout(input->GetIrValue(),
+              GetIrValueForScalar(p, input->shape().get().element_type(),
+                                  input->GetDevice()));
+  XLATensorPtr out = input->CreateFrom(torch::lazy::Value(node, 0));
+  XLATensorPtr mask = input->CreateFrom(torch::lazy::Value(node, 1));
+
+  return std::make_tuple(std::move(out), std::move(mask));
+}
+
 }  // namespace torch_xla

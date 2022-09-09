@@ -346,6 +346,8 @@ supported:
   # The same applies to these ops, but we already have direct lowerings for them
   # - _trilinear
   # - logsumexp.out
+  - native_dropout
+  - native_dropout_backward
 autograd:
   - max_pool2d
   - max_pool3d

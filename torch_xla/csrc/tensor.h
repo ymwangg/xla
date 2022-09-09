@@ -1194,9 +1194,14 @@ class XLATensor : public c10::intrusive_ptr_target {
   void SetShardingSpec(const xla::OpSharding& sharding, bool replicated,
                        bool manual);
   void ClearShardingSpec();
+  static XLATensorPtr dropout_backward(const XLATensorPtr& input, const XLATensorPtr& mask, double p);
+  static std::tuple<XLATensorPtr, XLATensorPtr> dropout(const XLATensorPtr& input, double p);
 
   static XLATensorPtr cdist_forward(const XLATensorPtr& x1,
                                     const XLATensorPtr& x2, double p);
+
+  static std::pair<XLATensorPtr, XLATensorPtr> linear_sum_assignment(
+      const XLATensorPtr& input, bool maximize);
 
  private:
   struct SyncTensorsConfig {

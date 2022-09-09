@@ -236,4 +236,14 @@ torch::lazy::NodePtr CdistForwardOp(const torch::lazy::Value& x1,
                                     const torch::lazy::Value& x2,
                                     const torch::lazy::Value& p);
 
+torch::lazy::NodePtr LinearSumAssignmentNode(const torch::lazy::Value& input,
+                                             bool maximize);
+
+torch::lazy::NodePtr DropoutBackward(const torch::lazy::Value& input,
+                                     const torch::lazy::Value& mask,
+                                     const torch::lazy::Value& scale);
+
+torch::lazy::NodePtr Dropout(const torch::lazy::Value& input,
+                             const torch::lazy::Value& probability);
+
 }  // namespace torch_xla
