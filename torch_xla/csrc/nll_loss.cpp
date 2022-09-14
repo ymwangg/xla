@@ -146,12 +146,6 @@ xla::XlaOp BuildNllLoss(xla::XlaOp logits, xla::XlaOp labels, xla::XlaOp weight,
   if (reduction_mode == ReductionMode::kSum) {
     return sum;
   }
-  // static bool opt = xla::sys_util::GetEnvBool("XLA_OPT", false);
-  // if (opt) {
-  //   std::cout << "opt barrier" << std::endl;
-  //   xla::XlaOp res = xla::OptimizationBarrier(sum / weight_scale.scale);
-  //   return res;
-  // }
   return sum / weight_scale.scale;
 }
 
@@ -192,12 +186,6 @@ xla::XlaOp BuildNllLossBackward(xla::XlaOp grad_output, xla::XlaOp logits,
   if (reduction_mode != ReductionMode::kMean) {
     return result;
   }
-  // static bool opt = xla::sys_util::GetEnvBool("XLA_OPT", false);
-  // if (opt) {
-  //   std::cout << "opt barrier" << std::endl;
-  //   xla::XlaOp res = xla::OptimizationBarrier(result / weight_scale.scale);
-  //   return res;
-  // }
   return result / weight_scale.scale;
 }
 

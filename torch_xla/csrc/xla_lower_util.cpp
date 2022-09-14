@@ -467,8 +467,6 @@ xla::XlaOp BuildBernoulli(xla::XlaOp probability, xla::XlaOp seed,
   xla::XlaOp one =
       xla::One(probability.builder(), probability_shape.element_type());
   xla::XlaOp noise = RngUniform(seed, probability_shape, zero, one);
-  // xla::XlaOp mask = xla::OptimizationBarrier(xla::Lt(noise, probability));
-  // return xla::ConvertElementType(mask, type);
   return xla::ConvertElementType(xla::Lt(noise, probability), type);
 }
 
