@@ -14,13 +14,4 @@ class Bernoulli : public XlaNode {
   XlaOpVector Lower(LoweringContext* loctx) const override;
 };
 
-// class BernoulliCuda : public XlaNode {
-//  public:
-//   BernoulliCuda(const torch::lazy::Value& probability, xla::Shape shape);
-
-//   torch::lazy::NodePtr Clone(torch::lazy::OpList operands) const override;
-
-//   XlaOpVector Lower(LoweringContext* loctx) const override;
-// };
-
 }  // namespace torch_xla
