@@ -1841,6 +1841,14 @@ class TestAtenXlaTensor(XlaTestCase):
     emb = emb.to(torch.bfloat16)
     emb_out = emb(index)
     assert emb_out.dtype == torch.bfloat16
+   
+  def test_linear_sum_assignment(self):
+    xla_device = xm.xla_device()
+    xla_cost = torch.randn(20, 20, device=xla_device)
+    xla_indices = torch_xla._XLAC._xla_linear_sum_assignment(xla_cost, True)
+    cost = xla_cost.cpu()
+    indices = scipy.optimize.linear_sum_assignment(cost, True)
+    self.assertEqual(xla_indices, indices)
 
 
 class MNISTComparator(nn.Module):
