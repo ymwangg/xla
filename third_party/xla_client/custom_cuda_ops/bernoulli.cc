@@ -260,7 +260,7 @@ void LinearSumAssignment(CUstream stream, void** buffers, const char* opaque,
   // }
   // std::cout << std::endl;
   solve_rectangular_linear_sum_assignment(
-      shape.dimensions(0), shape.dimensions(1), cost_h.data(), true,
+      shape.dimensions(0), shape.dimensions(1), cost_h.data(), maximize,
       row_idx_h.data(), col_idx_h.data());
   cudaMemcpy(row_idx, row_idx_h.data(), min_dim * sizeof(int64_t),
              cudaMemcpyHostToDevice);
