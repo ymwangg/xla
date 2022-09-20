@@ -1,6 +1,7 @@
 #include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/bernoulli.h"
 
 #include "rectangular_lsap.h"
+#include "lsainfo.h"
 #include "tensorflow/compiler/xla/primitive_util.h"
 #include "tensorflow/compiler/xla/service/custom_call_status.h"
 #include "tensorflow/compiler/xla/service/custom_call_target_registry.h"
@@ -227,10 +228,13 @@ void LinearSumAssignment(CUstream stream, void** buffers, const char* opaque,
   int64_t* col_idx = reinterpret_cast<int64_t*>(buffers[2]);
   // std::cout << input << "," << (void*)mask << "," << output << std::endl;
 
-  xla::ShapeProto shape;
-  if (!shape.ParseFromArray(opaque, opaque_len)) {
+  if (opaque_len != sizeof(xla::LSAInfo)) {
     return;
   }
+  xla::LSAInfo* LSA = absl::bit_cast<xla::LSAInfo*>(opaque);
+  xla::Shape shape = LSA->input_shape;
+  bool maximize = LSA->maximize;
+  
   int64_t min_dim = shape.dimensions(0) < shape.dimensions(1)
                         ? shape.dimensions(0)
                         : shape.dimensions(1);
