@@ -935,7 +935,6 @@ torch::lazy::NodePtr LinearSumAssignmentNode(const torch::lazy::Value& input,
         dim_shape,
     });
     std::string LSAstr = std::string(absl::bit_cast<const char*>(&LSA), sizeof(LSA));
-    //input_shape.ToProto().SerializeToString(&shape_proto);
     xla::XlaOp outputs = xla::CustomCall(
         loctx->builder(), "LinearSumAssignment", /*operands=*/{input},
         /*shape=*/output_shape, LSAstr, /*has_side_effect=*/false,
