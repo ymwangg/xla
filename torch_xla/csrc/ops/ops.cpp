@@ -9,6 +9,7 @@
 #include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/xla_client/debug_macros.h"
 #include "tensorflow/compiler/xla/xla_client/util.h"
+#include "tensorflow/compiler/xla/xla_client/custom_cuda_ops/lsainfo.h"
 #include "torch/csrc/lazy/core/helpers.h"
 #include "torch/csrc/lazy/core/util.h"
 #include "torch_xla/csrc/convert_ops.h"
@@ -916,11 +917,14 @@ std::pair<xla::XlaOp, xla::XlaOp> BuildLinearSumAssignment(xla::XlaOp input) {
 
 torch::lazy::NodePtr LinearSumAssignmentNode(const torch::lazy::Value& input,
                                              bool maximize) {
-  auto lower_fn = [](const XlaNode& node,
+  auto lower_fn = [maximize](const XlaNode& node,
                      LoweringContext* loctx) -> XlaOpVector {
     xla::XlaOp input = loctx->GetOutputOp(node.operand(0));
     // auto result = BuildLinearSumAssignment(input);
     xla::Shape input_shape = XlaHelpers::ShapeOfXlaOp(input);
+    xla::LSAInfo LSA;
+    LSA.input_shape = input_shape;
+    LSA.maximize = maximize;
     int dim = input_shape.dimensions(0) < input_shape.dimensions(1)
                   ? input_shape.dimensions(0)
                   : input_shape.dimensions(1);
@@ -930,11 +934,10 @@ torch::lazy::NodePtr LinearSumAssignmentNode(const torch::lazy::Value& input,
         dim_shape,
         dim_shape,
     });
-    std::string shape_proto;
-    input_shape.ToProto().SerializeToString(&shape_proto);
+    std::string LSAstr = std::string(absl::bit_cast<const char*>(&LSA), sizeof(LSA));
     xla::XlaOp outputs = xla::CustomCall(
         loctx->builder(), "LinearSumAssignment", /*operands=*/{input},
-        /*shape=*/output_shape, shape_proto, /*has_side_effect=*/false,
+        /*shape=*/output_shape, LSAstr, /*has_side_effect=*/false,
         /*output_operand_aliasing=*/{}, /*literal=*/nullptr,
         /*schedule=*/xla::CustomCallSchedule::SCHEDULE_NONE,
         /*api_version=*/xla::API_VERSION_STATUS_RETURNING);

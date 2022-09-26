@@ -13,6 +13,7 @@ cc_library(
         "bernoulli.h",
         "cuda_utils.h",
         "rectangular_lsap.h",
+        "lsainfo.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
