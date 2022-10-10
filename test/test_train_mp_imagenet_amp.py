@@ -224,18 +224,16 @@ def train_imagenet():
   def train_loop_fn(loader, epoch):
     tracker = xm.RateTracker()
     model.train()
+    zero = torch.tensor(0.0).to(device)
     for step, (data, target) in enumerate(loader):
       optimizer.zero_grad()
       if FLAGS.amp:
-        with autocast():
-          output = model(data)
-          loss = loss_fn(output, target)
-
-        scaler.scale(loss).backward()
+        output = model(data)
+        loss = loss_fn(output, target)
+        loss.backward()
         gradients = xm._fetch_gradients(optimizer)
         xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
-        scaler.step(optimizer)
-        scaler.update()
+        optimizer.step(found_inf=zero)
       else:
         output = model(data)
         loss = loss_fn(output, target)

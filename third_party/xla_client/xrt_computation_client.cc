@@ -75,7 +75,7 @@ class TensorAllocator : public tensorflow::Allocator {
     alignment = std::max<size_t>(alignment, sizeof(void*));
     // To call aligned_alloc(), num_bytes must be multiple of alignment.
     num_bytes =
-        tensorflow::MathUtil::CeilOfRatio(num_bytes, alignment) * alignment;
+        CeilOfRatio(num_bytes, alignment) * alignment;
 
     AllocKey alloc_key = {alignment, num_bytes};
     void* block = nullptr;
@@ -1626,6 +1626,8 @@ std::map<std::string, Metric> XrtComputationClient::GetMetrics() const {
           case xrt::MetricValues::BYTES:
             percentile.unit_of_measure = Percentile::UnitOfMeaure::kBytes;
             break;
+          default:
+          ;
         }
         percentile.start_nstime = xrt_percentile.start_nstime();
         percentile.end_nstime = xrt_percentile.end_nstime();
