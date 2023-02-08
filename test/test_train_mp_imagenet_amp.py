@@ -1,10 +1,14 @@
 import args_parse
+from transformers import ViTForImageClassification
+#import torch._dynamo as dynamo
+import torch.distributed as dist
+import torch.utils.data.distributed
 
 SUPPORTED_MODELS = [
     'alexnet', 'densenet121', 'densenet161', 'densenet169', 'densenet201',
     'inception_v3', 'resnet101', 'resnet152', 'resnet18', 'resnet34',
     'resnet50', 'squeezenet1_0', 'squeezenet1_1', 'vgg11', 'vgg11_bn', 'vgg13',
-    'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19', 'vgg19_bn'
+    'vgg13_bn', 'vgg16', 'vgg16_bn', 'vgg19', 'vgg19_bn', 'vit_b_16'
 ]
 
 MODEL_OPTS = {
@@ -105,7 +109,7 @@ for arg, value in default_value_dict.items():
 def get_model_property(key):
   default_model_property = {
       'img_dim': 224,
-      'model_fn': getattr(torchvision.models, FLAGS.model)
+      'model_fn': getattr(torchvision.models, FLAGS.model),
   }
   model_properties = {
       'inception_v3': {
@@ -196,12 +200,16 @@ def train_imagenet():
 
   torch.manual_seed(42)
 
-  device = xm.xla_device()
+  device = torch.device("cuda:0") if FLAGS.pt else xm.xla_device()
   model = get_model_property('model_fn')().to(device)
+  model = ViTForImageClassification.from_pretrained("google/vit-base-patch16-224").to(device)
+  model = ViTForImageClassification(model.config).to(device)
+  if FLAGS.pt and xm.xrt_world_size() > 1:
+    model = torch.nn.parallel.DistributedDataParallel(model)
   writer = None
   if xm.is_master_ordinal():
     writer = test_utils.get_summary_writer(FLAGS.logdir)
-  optim_cls = syncfree.SGD if FLAGS.amp and FLAGS.use_syncfree_optim else optim.SGD
+  optim_cls = syncfree.SGD if FLAGS.amp and FLAGS.use_syncfree_optim and not FLAGS.pt else optim.SGD
   optimizer = optim_cls(
       model.parameters(),
       lr=FLAGS.lr,
@@ -221,23 +229,43 @@ def train_imagenet():
   if FLAGS.amp:
     scaler = GradScaler(use_zero_grad=FLAGS.use_zero_grad)
 
+  def train(mod, data, target):
+    with autocast():
+      output = model(data)
+      if hasattr(output, "logits"):
+        output = output.logits
+      loss = loss_fn(output, target)
+    scaler.scale(loss).backward()
+    return loss
+
   def train_loop_fn(loader, epoch):
+    #train_opt = dynamo.optimize("inductor")(train)
+    train_opt = train
     tracker = xm.RateTracker()
     model.train()
     for step, (data, target) in enumerate(loader):
+      if FLAGS.pt:
+        xm.mark_step()
+        data = data.to(device)
+        target = target.to(device)
       optimizer.zero_grad()
       if FLAGS.amp:
-        with autocast():
-          output = model(data)
-          loss = loss_fn(output, target)
+        # with autocast():
+        #   # output = model(data).logits
+        #   output = model(data)
+        #   loss = loss_fn(output, target)
 
-        scaler.scale(loss).backward()
-        gradients = xm._fetch_gradients(optimizer)
-        xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
+        # scaler.scale(loss).backward()
+        loss = train_opt(model, data, target)
+        if not FLAGS.pt:
+          gradients = xm._fetch_gradients(optimizer)
+          xm.all_reduce('sum', gradients, scale=1.0 / xm.xrt_world_size())
         scaler.step(optimizer)
         scaler.update()
       else:
         output = model(data)
+        if hasattr(output, "logits"):
+          output = output.logits
         loss = loss_fn(output, target)
         loss.backward()
         xm.optimizer_step(optimizer)
@@ -253,7 +281,13 @@ def train_imagenet():
     total_samples, correct = 0, 0
     model.eval()
     for step, (data, target) in enumerate(loader):
+      if FLAGS.pt:
+        xm.mark_step()
+        data = data.to(device)
+        target = target.to(device)
       output = model(data)
+      if hasattr(output, "logits"):
+        output = output.logits
       pred = output.max(1, keepdim=True)[1]
       correct += pred.eq(target.view_as(pred)).sum()
       total_samples += data.size()[0]
@@ -264,8 +298,8 @@ def train_imagenet():
     accuracy = xm.mesh_reduce('test_accuracy', accuracy, np.mean)
     return accuracy
 
-  train_device_loader = pl.MpDeviceLoader(train_loader, device)
-  test_device_loader = pl.MpDeviceLoader(test_loader, device)
+  train_device_loader = train_loader if FLAGS.pt else pl.MpDeviceLoader(train_loader, device)
+  test_device_loader = test_loader if FLAGS.pt else pl.MpDeviceLoader(test_loader, device)
   accuracy, max_accuracy = 0.0, 0.0
   for epoch in range(1, FLAGS.num_epochs + 1):
     xm.master_print('Epoch {} train begin {}'.format(epoch, test_utils.now()))
@@ -292,6 +326,11 @@ def train_imagenet():
 def _mp_fn(index, flags):
   global FLAGS
   FLAGS = flags
+  if FLAGS.pt and xm.xrt_world_size() > 1:
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = '8888'
+    dist.init_process_group(backend="nccl", init_method="env://127.0.0.1:8888",
+                        world_size=xm.xrt_world_size(), rank=index)
   torch.set_default_tensor_type('torch.FloatTensor')
   accuracy = train_imagenet()
   if accuracy < FLAGS.target_accuracy:
