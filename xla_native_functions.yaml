@@ -385,6 +385,7 @@ symint:
   - select.int
   # See Note: [functionalization and CompositeExplicitAutograd]
   - reshape
+  - topk
 autograd:
   - einsum
   - max_pool2d

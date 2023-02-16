@@ -355,16 +355,15 @@ std::vector<xla::XlaOp> CreateTopK(xla::XlaOp input, int64_t k, int64_t dim,
   // Here 'k' is 1 based (1...).
   const xla::Shape& shape = XlaHelpers::ShapeOfXlaOp(input);
   XLA_CHECK_LE(k, shape.dimensions(dim));
+  xla::PrimitiveType iota_type = GetShapeDimensionType(/*device=*/nullptr);
   xla::Shape iota_shape =
-      xla::ShapeUtil::MakeShape(xla::PrimitiveType::S32, shape.dimensions());
+      xla::ShapeUtil::MakeShape(iota_type, shape.dimensions());
   xla::XlaOp iota = xla::Iota(input.builder(), iota_shape, dim);
   xla::XlaComputation comparator =
       largest ? xla::CreateScalarGtComputation(
-                    {shape.element_type(), xla::PrimitiveType::S32},
-                    input.builder())
+                    {shape.element_type(), iota_type}, input.builder())
               : xla::CreateScalarLtComputation(
-                    {shape.element_type(), xla::PrimitiveType::S32},
-                    input.builder());
+                    {shape.element_type(), iota_type}, input.builder());
   xla::XlaOp sort_result = xla::Sort({input, iota}, comparator, dim, stable);
 
   std::vector<int64_t> start_indices(shape.rank(), 0);
@@ -377,10 +376,7 @@ std::vector<xla::XlaOp> CreateTopK(xla::XlaOp input, int64_t k, int64_t dim,
                                  start_indices, limit_indices, strides);
   xla::XlaOp indices = xla::Slice(xla::GetTupleElement(sort_result, 1),
                                   start_indices, limit_indices, strides);
-  // aten::topk() wants Long tensors as indices.
-  return {values, xla::ConvertElementType(
-                      indices, GetDevicePrimitiveType(xla::PrimitiveType::S64,
-                                                      /*device=*/nullptr))};
+  return {values, indices};
 }
 
 xla::XlaOp CreateMatMul(xla::XlaOp lhs, xla::XlaOp rhs) {
