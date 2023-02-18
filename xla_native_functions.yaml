@@ -329,6 +329,7 @@ supported:
   - unbind_copy.int
   - uniform_
   - unsqueeze_copy
+  - _unique2
   - upsample_bilinear2d
   - upsample_bilinear2d_backward
   - upsample_nearest2d
