@@ -53,21 +53,6 @@ class SizeNode : public XlaNode, public torch::lazy::DimensionNode {
   mutable int64_t runtime_size_;
 };
 
-class SizeEq : public XlaNode, public torch::lazy::DimensionNode {
- public:
-  SizeEq(torch::lazy::Value a, torch::lazy::Value b);
-  int64_t getDynamicValue() const override;
-  int64_t getStaticValue() const override {
-    TORCH_CHECK(false, "Comparison operators should be using getDynamicValue");
-  }
-  bool isSymbolic() const override { return true; }
-  std::string ToString() const override;
-  virtual XlaOpVector Lower(LoweringContext* loctx) const override {
-    // TODO: not sure we will ever need it?
-    TORCH_CHECK(false, "Lowering comparison nodes isn't supported yet!");
-  }
-};
-
 class SizeAdd : public XlaNode, public torch::lazy::DimensionNode {
  public:
   SizeAdd(torch::lazy::Value a, torch::lazy::Value b);
@@ -139,5 +124,29 @@ class SizeConstant : public torch_xla::Scalar,
     return torch_xla::Scalar::Lower(loctx);
   };
 };
+
+#define DECLARE_COMPARISON_IR_NODE(class_name)                              \
+  class class_name : public XlaNode, public torch::lazy::DimensionNode {    \
+   public:                                                                  \
+    class_name(torch::lazy::Value a, torch::lazy::Value b);                 \
+    int64_t getDynamicValue() const override;                               \
+    int64_t getStaticValue() const override {                               \
+      TORCH_CHECK(false,                                                    \
+                  "Comparison operators should be using getDynamicValue");  \
+    }                                                                       \
+    bool isSymbolic() const override { return true; }                       \
+    std::string ToString() const override;                                  \
+    virtual XlaOpVector Lower(LoweringContext* loctx) const override {      \
+      /* TODO: not sure we will ever need it? */                            \
+      TORCH_CHECK(false, "Lowering comparison nodes isn't supported yet!"); \
+    }                                                                       \
+  };
+
+DECLARE_COMPARISON_IR_NODE(SizeEq)
+DECLARE_COMPARISON_IR_NODE(SizeNe)
+DECLARE_COMPARISON_IR_NODE(SizeGt)
+DECLARE_COMPARISON_IR_NODE(SizeGe)
+DECLARE_COMPARISON_IR_NODE(SizeLt)
+DECLARE_COMPARISON_IR_NODE(SizeLe)
 
 }  // namespace torch_xla

@@ -127,28 +127,6 @@ XlaOpVector SizeSub::Lower(LoweringContext* loctx) const {
   return ReturnOp((input0 - input1), loctx);
 }
 
-SizeEq::SizeEq(torch::lazy::Value a, torch::lazy::Value b)
-    : XlaNode(torch::lazy::OpKind{c10::Symbol::fromQualString("aten::size_eq")},
-              {a, b},
-              xla::ShapeUtil::MakeShape(
-                  GetShapeDimensionType(/*device=*/nullptr), {}),
-              1) {
-  const torch::lazy::DimensionNode* dim_node_0 = DimCast(operand(0));
-  const torch::lazy::DimensionNode* dim_node_1 = DimCast(operand(1));
-  XLA_CHECK(dim_node_0);
-  XLA_CHECK(dim_node_1);
-};
-
-int64_t SizeEq::getDynamicValue() const {
-  const torch::lazy::DimensionNode* dim_node_0 = DimCast(operand(0));
-  const torch::lazy::DimensionNode* dim_node_1 = DimCast(operand(1));
-  XLA_CHECK(dim_node_0);
-  XLA_CHECK(dim_node_1);
-  return dim_node_0->getDynamicValue() == dim_node_1->getDynamicValue() ? 1 : 0;
-}
-
-std::string SizeEq::ToString() const { return "aten::size_eq"; }
-
 SizeConstant::SizeConstant(int64_t val)
     : Scalar(c10::Scalar{val},
              xla::ShapeUtil::MakeShape(
@@ -223,5 +201,36 @@ XlaOpVector SizeDiv::Lower(LoweringContext* loctx) const {
   auto input2 = loctx->GetOutputOp(operand(1));
   return ReturnOp(xla::Div(input1, input2), loctx);
 }
+
+#define IMPLEMENT_COMPARISON_IR_NODE(class_name, aten_name, binary_op)        \
+  class_name::class_name(torch::lazy::Value a, torch::lazy::Value b)          \
+      : XlaNode(torch::lazy::OpKind{c10::Symbol::fromQualString(#aten_name)}, \
+                {a, b},                                                       \
+                xla::ShapeUtil::MakeShape(                                    \
+                    GetShapeDimensionType(/*device=*/nullptr), {}),           \
+                1) {                                                          \
+    const torch::lazy::DimensionNode* dim_node_0 = DimCast(operand(0));       \
+    const torch::lazy::DimensionNode* dim_node_1 = DimCast(operand(1));       \
+    XLA_CHECK(dim_node_0);                                                    \
+    XLA_CHECK(dim_node_1);                                                    \
+  };                                                                          \
+  int64_t class_name::getDynamicValue() const {                               \
+    const torch::lazy::DimensionNode* dim_node_0 = DimCast(operand(0));       \
+    const torch::lazy::DimensionNode* dim_node_1 = DimCast(operand(1));       \
+    XLA_CHECK(dim_node_0);                                                    \
+    XLA_CHECK(dim_node_1);                                                    \
+    return dim_node_0->getDynamicValue()                                      \
+                   binary_op dim_node_1->getDynamicValue()                    \
+               ? 1                                                            \
+               : 0;                                                           \
+  }                                                                           \
+  std::string class_name::ToString() const { return #aten_name; }
+
+IMPLEMENT_COMPARISON_IR_NODE(SizeEq, aten::size_eq, ==)
+IMPLEMENT_COMPARISON_IR_NODE(SizeNe, aten::size_lt, !=)
+IMPLEMENT_COMPARISON_IR_NODE(SizeGt, aten::size_gt, >)
+IMPLEMENT_COMPARISON_IR_NODE(SizeGe, aten::size_ge, >=)
+IMPLEMENT_COMPARISON_IR_NODE(SizeLt, aten::size_lt, <)
+IMPLEMENT_COMPARISON_IR_NODE(SizeLe, aten::size_le, <=)
 
 }  // namespace torch_xla

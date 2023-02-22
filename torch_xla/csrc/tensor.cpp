@@ -683,28 +683,33 @@ c10::SymNode XLASymNodeImpl::eq(const c10::SymNode& other) {
 }
 
 c10::SymNode XLASymNodeImpl::ne(const c10::SymNode& other) {
-  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
-                   << " has not been implemented.";
+  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
+  auto n_eq = torch::lazy::MakeNode<SizeNe>(node(), p_other->node());
+  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
 }
 
 c10::SymNode XLASymNodeImpl::gt(const c10::SymNode& other) {
-  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
-                   << " has not been implemented.";
+  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
+  auto n_eq = torch::lazy::MakeNode<SizeGt>(node(), p_other->node());
+  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
 }
 
 c10::SymNode XLASymNodeImpl::lt(const c10::SymNode& other) {
-  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
-                   << " has not been implemented.";
+  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
+  auto n_eq = torch::lazy::MakeNode<SizeLt>(node(), p_other->node());
+  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
 }
 
 c10::SymNode XLASymNodeImpl::le(const c10::SymNode& other) {
-  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
-                   << " has not been implemented.";
+  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
+  auto n_eq = torch::lazy::MakeNode<SizeLe>(node(), p_other->node());
+  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
 }
 
 c10::SymNode XLASymNodeImpl::ge(const c10::SymNode& other) {
-  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
-                   << " has not been implemented.";
+  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
+  auto n_eq = torch::lazy::MakeNode<SizeGe>(node(), p_other->node());
+  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
 }
 
 c10::SymNode XLASymNodeImpl::ceil() {
