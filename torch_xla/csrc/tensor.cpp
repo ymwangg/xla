@@ -627,6 +627,11 @@ bool XLASymNodeImpl::is_int() {
   return true;
 }
 
+bool XLASymNodeImpl::is_bool() {
+  // TODO: handle not is int
+  return false;
+}
+
 bool XLASymNodeImpl::is_float() {
   // TODO: handle not is int
   return false;

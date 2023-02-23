@@ -31,6 +31,7 @@ class TORCH_API XLASymNodeImpl : public c10::SymNodeImpl {
  public:
   XLASymNodeImpl(torch::lazy::NodePtr ptr) : node_(std::move(ptr)) {}
   bool is_int() override;
+  bool is_bool() override;
   bool is_float() override;
   c10::SymNode add(const c10::SymNode& other) override;
   c10::SymNode sub(const c10::SymNode& other) override;
