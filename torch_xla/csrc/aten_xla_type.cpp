@@ -2991,14 +2991,14 @@ at::Tensor XLANativeFunctions::upsample_nearest2d_backward(
   // our XLA lowering.
   XlaDeviceType hw_type =
       static_cast<XlaDeviceType>(grad_output_tensor->GetDevice().type());
-  if (hw_type != XlaDeviceType::TPU || (scales_h && *scales_h != 1.0) ||
-      (scales_w && *scales_w != 1.0)) {
-    return at::native::call_fallback_fn<
-        &xla_cpu_fallback,
-        ATEN_OP(upsample_nearest2d_backward)>::call(grad_output, output_size,
-                                                    input_size, scales_h,
-                                                    scales_w);
-  }
+  // if (hw_type != XlaDeviceType::TPU && hw_type != XlaDeviceType::GPU ||
+  //     (scales_h && *scales_h != 1.0) || (scales_w && *scales_w != 1.0)) {
+  //   return at::native::call_fallback_fn<
+  //       &xla_cpu_fallback,
+  //       ATEN_OP(upsample_nearest2d_backward)>::call(grad_output, output_size,
+  //                                                   input_size, scales_h,
+  //                                                   scales_w);
+  // }
   return bridge::AtenFromXlaTensor(tensor_methods::upsample_nearest2d_backward(
       grad_output_tensor, torch::lazy::ToVector<int64_t>(output_size),
       torch::lazy::ToVector<int64_t>(input_size)));

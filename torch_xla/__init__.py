@@ -132,6 +132,7 @@ logger.info(
     'from `libtpu` Python package when the ComputationClient is created.')
 os.environ['TPU_LOAD_LIBRARY'] = '0'
 import _XLAC
+import _XLAC_CUDA
 del os.environ['TPU_LOAD_LIBRARY']
 
 _found_libtpu = _setup_tpu_vm_library_path()

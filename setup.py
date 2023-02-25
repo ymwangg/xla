@@ -38,7 +38,7 @@
 from __future__ import print_function
 
 from setuptools import setup, find_packages, distutils
-from torch.utils.cpp_extension import BuildExtension, CppExtension
+from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension
 import contextlib
 import distutils.ccompiler
 import distutils.command.clean
@@ -273,6 +273,10 @@ torch_xla_sources = (
     glob.glob('torch_xla/pb/cpp/*.cc') +
     glob.glob('torch_xla/csrc/generated/*.cpp'))
 
+torch_xla_cuda_sources = (
+    glob.glob('torch_xla/csrc/cuda/*.cpp') +
+    glob.glob('torch_xla/csrc/cuda/*.cu'))
+
 # Constant known variables used throughout this file.
 lib_path = os.path.join(base_dir, 'torch_xla/lib')
 pytorch_source_path = os.getenv('PYTORCH_SOURCE_PATH',
@@ -354,6 +358,15 @@ setup(
             torch_xla_sources,
             include_dirs=include_dirs,
             extra_compile_args=extra_compile_args,
+            library_dirs=library_dirs,
+            extra_link_args=extra_link_args + \
+                [make_relative_rpath('torch_xla/lib')],
+        ),
+        CUDAExtension(
+            '_XLAC_CUDA',
+            torch_xla_cuda_sources,
+            include_dirs=include_dirs,
+            extra_compile_args={'cxx': extra_compile_args, 'nvcc': ['-O2']},
             library_dirs=library_dirs,
             extra_link_args=extra_link_args + \
                 [make_relative_rpath('torch_xla/lib')],
