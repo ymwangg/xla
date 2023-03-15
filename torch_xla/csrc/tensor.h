@@ -39,7 +39,6 @@ class TORCH_API XLASymNodeImpl final : public c10::SymNodeImpl {
       : node_(std::move(ptr)), pytype_(pytype) {}
   bool is_bool() override;
   bool is_int() override;
-  bool is_bool() override;
   bool is_float() override;
   c10::SymNode add(const c10::SymNode& other) override;
   c10::SymNode sub(const c10::SymNode& other) override;

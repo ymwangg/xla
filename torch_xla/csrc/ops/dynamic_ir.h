@@ -215,11 +215,11 @@ class SizeConstant : public torch_xla::Scalar,
     }                                                                       \
   };
 
-DECLARE_COMPARISON_IR_NODE(SizeEq)
-DECLARE_COMPARISON_IR_NODE(SizeNe)
-DECLARE_COMPARISON_IR_NODE(SizeGt)
-DECLARE_COMPARISON_IR_NODE(SizeGe)
-DECLARE_COMPARISON_IR_NODE(SizeLt)
-DECLARE_COMPARISON_IR_NODE(SizeLe)
+// DECLARE_COMPARISON_IR_NODE(SizeEq)
+// DECLARE_COMPARISON_IR_NODE(SizeNe)
+// DECLARE_COMPARISON_IR_NODE(SizeGt)
+// DECLARE_COMPARISON_IR_NODE(SizeGe)
+// DECLARE_COMPARISON_IR_NODE(SizeLt)
+// DECLARE_COMPARISON_IR_NODE(SizeLe)
 
 }  // namespace torch_xla

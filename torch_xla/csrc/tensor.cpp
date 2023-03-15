@@ -697,9 +697,8 @@ c10::SymNode XLASymNodeImpl::ne(const c10::SymNode& other) {
 }
 
 c10::SymNode XLASymNodeImpl::gt(const c10::SymNode& other) {
-  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
-  auto n_eq = torch::lazy::MakeNode<SizeGt>(node(), p_other->node());
-  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
+  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
+                   << " has not been implemented.";
 }
 
 c10::SymNode XLASymNodeImpl::lt(const c10::SymNode& other) {
@@ -712,9 +711,8 @@ c10::SymNode XLASymNodeImpl::lt(const c10::SymNode& other) {
 }
 
 c10::SymNode XLASymNodeImpl::le(const c10::SymNode& other) {
-  auto p_other = dynamic_cast<XLASymNodeImpl*>(other.get());
-  auto n_eq = torch::lazy::MakeNode<SizeLe>(node(), p_other->node());
-  return c10::make_intrusive<XLASymNodeImpl>(n_eq);
+  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
+                   << " has not been implemented.";
 }
 
 c10::SymNode XLASymNodeImpl::ge(const c10::SymNode& other) {
@@ -723,6 +721,12 @@ c10::SymNode XLASymNodeImpl::ge(const c10::SymNode& other) {
   XLA_CHECK(is_int()) << __FUNCTION__ << " with non-int NYI";
   XLA_CHECK(p_other->is_int()) << __FUNCTION__ << " with non-int NYI";
   auto n_ge = torch::lazy::MakeNode<SizeGe>(node(), p_other->node());
+  return c10::make_intrusive<XLASymNodeImpl>(n_ge, PyType::BOOL);
+}
+
+c10::SymNode XLASymNodeImpl::ceil() {
+  XLA_CHECK(false) << "XLASymNodeImpl::" << __FUNCTION__
+                   << " has not been implemented.";
 }
 
 c10::SymNode XLASymNodeImpl::floor() {
